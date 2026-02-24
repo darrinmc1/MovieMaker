@@ -50,7 +50,7 @@
 
 ---
 
-## 🚧 IN PROGRESS - Improvement #2: Simplify Review Interface
+## ✅ COMPLETED - Improvement #2: Simplify Review Interface
 
 ### What Changed:
 **Before:** One massive page with 12+ different card types (Intent Alignment, Drift Radar, Character Integrity, Continuity, Suggestions, etc.) all mixed together.  
@@ -94,16 +94,64 @@
 
 ---
 
+## ✅ COMPLETED - Improvement #3: Streamline Approval Flow
+
+### What Changed:
+**Before:** 3 confusing buttons (APPROVE, REJECT, SKIP) with hidden "REVISE" mode.  
+**After:** 2 clear action buttons (APPROVE, REJECT) with optional notes.
+
+### Features Added:
+
+#### **Simplified Suggestion Approval**
+- **Two main buttons:**
+  - ✓ Approve (green) - Saves suggestion with optional notes
+  - ✗ Reject (red) - Removes suggestion
+- **Status badges** show current state clearly:
+  - "✓ Approved" (when already approved)
+  - "✓ Approve" (when pending)
+  - "✗ Reject" (ready to reject)
+- **Optional notes field** appears under approved suggestions
+  - Non-intrusive textarea for adding context
+  - Only visible when you need it
+
+#### **Progress Meter**
+- Shows at top of Suggestions tab: "3 / 8 approved"
+- Visual progress bar (green gradient)
+- Motivational: See progress as you work through suggestions
+
+#### **Auto-Save to LocalStorage**
+- Saves draft every 10 seconds automatically
+- Shows "Auto-saved 3:45 PM" indicator
+- Blue pulsing dot while saving, green dot when saved
+- Survives page refresh - no lost work!
+- Stored in browser's localStorage (local to this machine)
+
+### State Simplification:
+- Removed confusing `'revise'` state
+- Now only: `'approved' | 'rejected' | 'skipped'`
+- Approval → Notes (linear workflow)
+- Much clearer mental model for users
+
+### Why This Matters:
+1. **Clarity** - Users know exactly what each button does
+2. **Safety** - Auto-save prevents lost work
+3. **Motivation** - Progress meter shows they're making progress
+4. **Simplicity** - Less decision fatigue (2 choices instead of 3+)
+
+---
+
 ## 📋 NEXT IMPROVEMENTS (IN QUEUE)
 
-### #3: Streamline Approval Flow
-**Current Issue:** Suggestions have confusing state handling (approved/rejected/revise/skipped).  
+### #4: Keyboard Shortcuts (NEXT UP) ⭐⭐
+**Current Issue:** All actions require mouse/trackpad.  
 **Plan:**
-- Simplify to: APPROVE (saves to draft) / REJECT (removes) / REQUEST CHANGE (optional edit field)
-- Single button for each action, clear state machine
-- Show inline badge: ✓ Approved / ✗ Rejected / ⏳ Pending
+- A = Approve current suggestion
+- R = Reject current suggestion
+- Tab = Jump to next suggestion
+- Shift+Tab = Jump to previous suggestion
+- Cmd+S / Ctrl+S = Force save (explicit backup)
 
-### #4: Add Dashboard with Progress Tracking
+### #5: Add Dashboard with Progress Tracking
 **Current Issue:** No way to see project-level status.  
 **Plan:**
 - Dashboard page showing:
@@ -112,7 +160,7 @@
   - Recent activity (last 5 acts edited)
   - Status badges: Draft / Under Review / Approved / Published
 
-### #5: Database Integration
+### #6: Database Integration
 **Current Issue:** Data is hardcoded JSON files; can't save new uploads.  
 **Plan:**
 - Migrate to Supabase (or SQLite for local dev)
@@ -120,7 +168,7 @@
 - Real API calls that persist changes
 - User authentication & multi-project support
 
-### #6: Improve Uploader
+### #7: Improve Uploader
 **Current Issue:** Shows "Processing..." but doesn't actually parse .docx files.  
 **Plan:**
 - Parse .docx with mammoth library
@@ -128,14 +176,14 @@
 - Let user confirm chapter boundaries
 - Extract chapter summaries automatically
 
-### #7: Export & Sharing
+### #8: Export & Sharing
 **Current Issue:** No way to export edited chapters or share reviews.  
 **Plan:**
 - Export to Word (.docx) with tracked changes
 - Export to PDF with review annotations
 - Share review link (read-only) with co-editors
 
-### #8: Keyboard Shortcuts
+### #9: Advanced Features
 **Current Issue:** All interaction requires mouse clicks.  
 **Plan:**
 - A = Approve suggestion

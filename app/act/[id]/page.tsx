@@ -19,14 +19,51 @@ export default function ActPage({ params }: { params: Promise<{ id: string }> })
     const [characters] = useState(charactersData)
     const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null)
     const [reviewTab, setReviewTab] = useState<'overview' | 'findings' | 'suggestions' | 'continuity'>('overview')
+    const [lastSaved, setLastSaved] = useState<Date | null>(null)
+    const [isSaving, setIsSaving] = useState(false)
 
     const [activePersona, setActivePersona] = useState<'developmental_editor' | 'line_editor' | 'beta_reader'>('developmental_editor')
+
+    // Auto-save draft to localStorage
+    useEffect(() => {
+        const timer = setInterval(() => {
+            if (step === 'reviewed' && reviews.length > 0) {
+                try {
+                    const draft = {
+                        reviews,
+                        summary,
+                        approvedCuts,
+                        step,
+                        timestamp: new Date().toISOString()
+                    }
+                    localStorage.setItem(`draft_${id}`, JSON.stringify(draft))
+                    setLastSaved(new Date())
+                    setIsSaving(false)
+                } catch (e) {
+                    console.error('Failed to save draft:', e)
+                }
+            }
+        }, 10000) // Auto-save every 10 seconds
+        return () => clearInterval(timer)
+    }, [reviews, summary, approvedCuts, step, id])
 
     useEffect(() => {
         const act = (actsData as any[]).find((a: any) => a.id === id)
         if (act) {
             setCurrentAct(act)
             setSummary(act.summary?.text || "")
+        }
+
+        // Check for draft
+        const savedDraft = localStorage.getItem(`draft_${id}`)
+        if (savedDraft) {
+            try {
+                const draft = JSON.parse(savedDraft)
+                // Show prompt to resume (will implement in UI)
+                console.log('Draft found:', draft)
+            } catch (e) {
+                console.error('Failed to parse draft:', e)
+            }
         }
     }, [id])
 
@@ -198,6 +235,14 @@ export default function ActPage({ params }: { params: Promise<{ id: string }> })
 
             {step === 'reviewed' && (
                 <div className="space-y-8">
+                    {/* Auto-save Indicator */}
+                    {lastSaved && (
+                        <div className="text-right text-xs text-zinc-500 flex items-center justify-end gap-2">
+                            <span className={`w-2 h-2 rounded-full ${isSaving ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`}></span>
+                            {isSaving ? 'Saving...' : `Auto-saved ${lastSaved.toLocaleTimeString()}`}
+                        </div>
+                    )}
+
                     {/* Review Navigation Tabs */}
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex gap-2 overflow-x-auto">
                         {[
@@ -468,7 +513,29 @@ export default function ActPage({ params }: { params: Promise<{ id: string }> })
                             {/* SUGGESTIONS TAB */}
                             {reviewTab === 'suggestions' && (
                             <section className="space-y-6">
-                                <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest px-1">✏️ Proposed Revisions</h3>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest">✏️ Proposed Revisions</h3>
+                                    {(() => {
+                                        const total = r.suggestions?.length || 0
+                                        const approved = r.suggestions?.filter((s: any) => s.status === 'approved').length || 0
+                                        const rejected = r.suggestions?.filter((s: any) => s.status === 'rejected').length || 0
+                                        const percent = total > 0 ? Math.round((approved / total) * 100) : 0
+                                        return (
+                                            <div className="flex items-center gap-3">
+                                                <div className="text-right">
+                                                    <div className="text-xs font-black text-white">{approved}/{total}</div>
+                                                    <div className="text-[10px] text-zinc-500">approved</div>
+                                                </div>
+                                                <div className="w-16 h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-gradient-to-r from-green-500 to-green-600 transition-all duration-300"
+                                                        style={{ width: `${percent}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })()}
+                                </div>
                                 {r.suggestions.filter((s: any) => s.status !== 'skipped').map((s: any, k: number) => (
                                     <div key={k} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
                                         <div className="grid grid-cols-1 md:grid-cols-2">
@@ -488,46 +555,53 @@ export default function ActPage({ params }: { params: Promise<{ id: string }> })
                                             </div>
                                         </div>
 
-                                        <div className="p-6 bg-zinc-900/50 border-t border-zinc-800/50 flex flex-col md:flex-row items-center justify-between gap-6">
+                                        {/* Reason & Actions */}
+                                        <div className="p-6 bg-zinc-900/50 border-t border-zinc-800/50 space-y-4">
                                             <div className="flex items-start gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-zinc-800 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-zinc-400">?</div>
-                                                <p className="text-xs text-zinc-400 leading-normal max-w-lg">"{s.reason}"</p>
+                                                <div className="w-6 h-6 rounded-full bg-blue-900/30 flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-blue-400 mt-0.5">💡</div>
+                                                <p className="text-xs text-zinc-300 leading-relaxed">"{s.reason}"</p>
                                             </div>
-                                            <div className="flex gap-2">
+
+                                            {/* Action Buttons */}
+                                            <div className="flex gap-2 pt-2">
                                                 <button
                                                     onClick={() => {
                                                         handleSuggestionStatus(i, s.suggestionId, 'approved')
                                                         handleApprove(s.suggestionId)
                                                     }}
-                                                    className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${s.status === 'approved' ? 'bg-green-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                                                    className={`flex-1 px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                                                        s.status === 'approved' 
+                                                            ? 'bg-green-600 text-white shadow-lg shadow-green-500/30' 
+                                                            : 'bg-green-950/30 text-green-400 border border-green-900/50 hover:bg-green-950/50 hover:border-green-800'
+                                                    }`}
                                                 >
-                                                    APPROVE
+                                                    {s.status === 'approved' ? '✓ Approved' : '✓ Approve'}
                                                 </button>
                                                 <button
                                                     onClick={() => handleSuggestionStatus(i, s.suggestionId, 'rejected')}
-                                                    className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all ${s.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                                                    className={`flex-1 px-4 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                                                        s.status === 'rejected' 
+                                                            ? 'bg-red-600 text-white shadow-lg shadow-red-500/30' 
+                                                            : 'bg-red-950/30 text-red-400 border border-red-900/50 hover:bg-red-950/50 hover:border-red-800'
+                                                    }`}
                                                 >
-                                                    REJECT
-                                                </button>
-                                                <button
-                                                    onClick={() => handleSuggestionStatus(i, s.suggestionId, 'skipped')}
-                                                    className={`px-3 py-1.5 rounded-md text-[10px] font-black transition-all bg-zinc-800 text-zinc-400 hover:bg-zinc-700`}
-                                                >
-                                                    SKIP
+                                                    ✗ Reject
                                                 </button>
                                             </div>
-                                        </div>
 
-                                        {s.status === 'revise' && (
-                                            <div className="p-6 bg-amber-950/10 border-t border-amber-900/20">
-                                                <textarea
-                                                    className="w-full bg-zinc-950 border border-amber-900/30 rounded-xl p-4 text-sm text-zinc-200 focus:outline-none focus:border-amber-500/50 min-h-[80px]"
-                                                    placeholder="Specify the refinement scope..."
-                                                    value={s.comment || ""}
-                                                    onChange={(e) => handleCommentChange(i, s.suggestionId, e.target.value)}
-                                                />
-                                            </div>
-                                        )}
+                                            {/* Notes field (always visible) */}
+                                            {s.status === 'approved' && (
+                                                <div className="mt-3 pt-3 border-t border-zinc-800/50">
+                                                    <textarea
+                                                        className="w-full bg-zinc-950 border border-zinc-700 rounded-lg p-3 text-xs text-zinc-200 focus:outline-none focus:border-green-600/50 focus:ring-1 focus:ring-green-500/20 resize-none"
+                                                        placeholder="(Optional) Add a note about this change..."
+                                                        value={s.userComment || ""}
+                                                        onChange={(e) => handleCommentChange(i, s.suggestionId, e.target.value)}
+                                                        rows={2}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </section>
