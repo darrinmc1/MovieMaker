@@ -7,68 +7,96 @@
 
 ---
 
-## 🚀 Quick Wins (Do These First - 1-2 Hours Each)
+## ✅ COMPLETED - Quick Wins
 
-### Priority 1: Fix Suggestion Approval UX ⭐⭐⭐
-**Time: ~1 hour | Impact: HIGH**
+### ✅ Priority 1: Fix Suggestion Approval UX ⭐⭐⭐
+**Status: DONE** | Commit: `7715701`
 
-Right now the suggestion approval is confusing. Let's simplify it.
+- Simplified to 2 clear buttons: ✓ Approve / ✗ Reject
+- Removed confusing 'revise' state
+- Status badges now show "Approved" vs "Approve"
+- Notes field appears only when approved
 
-**Change:**
-```tsx
-// Before: 3 buttons (APPROVE, REJECT, SKIP) + hidden "REVISE" mode
-<button>APPROVE</button>
-<button>REJECT</button>
-<button>SKIP</button>
+### ✅ Priority 2: Add Save/Auto-Save ⭐⭐⭐
+**Status: DONE** | Commit: `7715701`
 
-// After: 2 clear buttons
-<button>✓ APPROVE</button>
-<button>✗ REJECT</button>
-// Optional: Small "Request Changes" link if they want to edit
+- Auto-saves draft every 10 seconds
+- Shows "Auto-saved 3:45 PM" indicator
+- Blue/green dot for save status
+- Draft detection on page load (recovery ready)
+
+### ✅ Priority 3: Add Progress Meter ⭐⭐
+**Status: DONE** | Commit: `7715701`
+
+- Shows "3 / 8 approved" at top of Suggestions tab
+- Green gradient progress bar
+- Updates in real-time
+
+---
+
+## 🚀 Next Quick Wins (1-2 Hours Each)
+
+### Priority 4: Resume Draft Dialog ⭐⭐
+**Time: 30 min | Impact: HIGH**
+
+When user opens a reviewed act with saved draft, show:
+
+```
+┌─────────────────────────────────────┐
+│ Resume Editing?                      │
+│                                      │
+│ Found draft from 3:45 PM today       │
+│ Resume from where you left off?      │
+│                                      │
+│ [Yes, Resume]     [No, Start Fresh]  │
+└─────────────────────────────────────┘
 ```
 
-**What to change:**
-- In `app/act/[id]/page.tsx`, simplify the suggestion approval buttons
-- Remove the `'revise'` state from `suggestion.status`
-- Add a small textarea that appears on hover (for notes)
-- Show badge above each suggestion showing current status
+**Code:** Draft detection is already in place (`useEffect` on line ~30). Just need UI.
 
-### Priority 2: Add Save/Auto-Save ⭐⭐⭐
-**Time: ~1 hour | Impact: CRITICAL**
+### Priority 5: Keyboard Shortcuts ⭐⭐⭐
+**Time: 1 hour | Impact: MEDIUM**
 
-Currently if you refresh the page, all your review work is lost!
-
-**What to do:**
-- Save draft review to `localStorage` every 10 seconds
-- Show "Auto-saved" indicator in bottom right
-- On page load, check localStorage and ask: "Resume previous review?" 
-- Add "Discard Draft" button
+Add shortcuts for power users:
+- `A` = Approve current suggestion
+- `R` = Reject current suggestion
+- `Tab` = Jump to next suggestion
+- `Shift+Tab` = Jump to previous suggestion
+- `Cmd+S` / `Ctrl+S` = Force save now
 
 **Code snippet:**
 ```tsx
-// Add to act/[id]/page.tsx
 useEffect(() => {
-  const timer = setInterval(() => {
-    localStorage.setItem(`draft_${id}`, JSON.stringify({
-      reviews, summary, approvedCuts, step
-    }))
-  }, 10000)
-  return () => clearInterval(timer)
-}, [reviews, summary, approvedCuts, step, id])
+  const handleKeyPress = (e: KeyboardEvent) => {
+    if (e.key === 'a' || e.key === 'A') {
+      // Approve current suggestion
+      handleSuggestionStatus(currentIndex, suggestions[currentIndex].id, 'approved')
+    }
+    if (e.key === 'r' || e.key === 'R') {
+      // Reject current suggestion
+      handleSuggestionStatus(currentIndex, suggestions[currentIndex].id, 'rejected')
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault()
+      // Force save now
+      setIsSaving(true)
+    }
+  }
+  window.addEventListener('keydown', handleKeyPress)
+  return () => window.removeEventListener('keydown', handleKeyPress)
+}, [currentIndex])
 ```
 
-### Priority 3: Add Progress Meter ⭐⭐
-**Time: ~30 min | Impact: MEDIUM**
+### Priority 6: Clear Draft Button ⭐
+**Time: 15 min | Impact: MEDIUM**
 
-Show at top of review: "3 of 8 suggestions reviewed"
+Add button to discard draft:
 
-**What to add:**
-```tsx
-const approvedCount = reviews[0]?.suggestions.filter(s => s.status === 'approved').length || 0
-const totalCount = reviews[0]?.suggestions.length || 0
-<div className="text-xs text-zinc-400">
-  {approvedCount} / {totalCount} suggestions reviewed
-</div>
+```
+Settings/Help area in sidebar:
+[⚙️ Settings]
+[❌ Clear Draft for this Act]
+[❓ Help]
 ```
 
 ---
@@ -175,16 +203,19 @@ On library view:
 WEEK 1:
 ✅ [DONE] #1 - Homepage redesign
 ✅ [DONE] #2 - Review tabs
-⏳ [TODO] Approve/Reject UX fix (1h)
-⏳ [TODO] Auto-save to localStorage (1h)
-⏳ [TODO] Progress meter (30min)
+✅ [DONE] #3 - Approval UX + Auto-save + Progress meter
 
 WEEK 2:
+⏳ [TODO] #4 - Resume Draft dialog (30min)
+⏳ [TODO] #5 - Keyboard shortcuts (1h)
+⏳ [TODO] #6 - Clear Draft button (15min)
 🔧 [TODO] Wire up Gemini API (2-3h)
-🔧 [TODO] Database migration (2-4h)
-🎨 [TODO] Polish: Breadcrumbs, shortcuts, badges (1-2h each)
 
 WEEK 3:
+🔧 [TODO] Database migration (2-4h)
+🎨 [TODO] Polish: Breadcrumbs, status badges (1-2h)
+
+WEEK 4:
 🚀 [TODO] Uploader: Parse .docx properly (1-2h)
 🚀 [TODO] Export to Word/PDF (2-3h)
 ```
