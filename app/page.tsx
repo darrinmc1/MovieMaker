@@ -1,12 +1,9 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import charactersData from '@/data/characters.json';
-import actsData from '@/data/acts.json';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import outlinesData from '@/data/outlines.json';
 import Uploader from '@/components/Uploader';
+import { supabase } from '@/lib/supabaseClient';
 
 import { Character } from '@/types';
 
@@ -14,12 +11,53 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState<'library' | 'characters' | 'upload'>('library');
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  
+  const [acts, setActs] = useState<any[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const acts = actsData as any[];
-  const characters = charactersData as Character[];
+  // Fetch data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      
+      // Fetch Acts with Versions
+      const { data: actsData, error: actsError } = await supabase
+        .from('acts')
+        .select('*, versions:act_versions(*)')
+        .order('chapter_id', { ascending: true });
+        
+      if (actsError) console.error('Error fetching acts:', actsError);
+      else setActs(actsData || []);
 
-  // Group acts by book
-  const actsByBook = acts.reduce((acc, act) => {
+      // Fetch Characters
+      const { data: charsData, error: charsError } = await supabase
+        .from('characters')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (charsError) console.error('Error fetching characters:', charsError);
+      else setCharacters(charsData as Character[] || []);
+      
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
+
+  // Group acts by book (assuming bookId is part of the act or derived)
+  // Since our SQL schema didn't explicitly have book_id, we might need to derive it from ID or add it.
+  // The original acts.json had bookId. My schema.sql didn't have it explicitly but it's fine if we just
+  // assume it's part of the data or we just default to 'book-1'.
+  // Actually, let's map the DB response to the shape the UI expects.
+  
+  const mappedActs = acts.map(act => ({
+    ...act,
+    bookId: act.id.includes('book-2') ? 'book-2' : 'book-1', // Simple heuristic or derived from ID
+    versions: act.versions // Supabase returns joined data on the key we specified
+  }));
+
+  const actsByBook = mappedActs.reduce((acc, act) => {
     const bookId = act.bookId || 'book-1';
     if (!acc[bookId]) acc[bookId] = [];
     acc[bookId].push(act);
@@ -31,6 +69,10 @@ export default function Home() {
     { id: 'characters', label: 'Characters', icon: '👥', count: characters.length },
     { id: 'upload', label: 'Upload New', icon: '⬆️' },
   ];
+
+  if (loading) {
+    return <div className="min-h-screen bg-black text-zinc-500 flex items-center justify-center">Loading database...</div>;
+  }
 
   return (
     <main className="min-h-screen bg-black text-zinc-100 flex font-sans">
@@ -52,11 +94,10 @@ export default function Home() {
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id as any)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${
-                activeSection === item.id
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeSection === item.id
                   ? 'bg-white text-black font-bold'
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
-              }`}
+                }`}
               title={!sidebarOpen ? item.label : undefined}
             >
               <span className="text-lg flex-shrink-0">{item.icon}</span>
@@ -91,149 +132,149 @@ export default function Home() {
       <div className="flex-1 overflow-auto">
         <div className="max-w-6xl mx-auto p-8 space-y-8">
 
-        {/* Header */}
-        <header className="space-y-4">
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter text-white mb-2">
-              {activeSection === 'library' && '📚 Project Library'}
-              {activeSection === 'characters' && '👥 Story Bible: Characters'}
-              {activeSection === 'upload' && '⬆️ Upload New Content'}
-            </h1>
-            <p className="text-zinc-400 text-sm">
-              {activeSection === 'library' && 'Manage your manuscript acts and chapters'}
-              {activeSection === 'characters' && 'View and manage your character database'}
-              {activeSection === 'upload' && 'Add new acts or character profiles to your project'}
-            </p>
-          </div>
-        </header>
-
-        {/* Library Section */}
-        {activeSection === 'library' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Acts</div>
-                <div className="text-3xl font-black text-white">{acts.length}</div>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Characters</div>
-                <div className="text-3xl font-black text-white">{characters.length}</div>
-              </div>
-              <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Versions</div>
-                <div className="text-3xl font-black text-white">{acts.reduce((sum, a) => sum + (a.versions?.length || 1), 0)}</div>
-              </div>
-              <div className="bg-blue-950/20 border border-blue-900/30 p-4 rounded-xl">
-                <div className="text-blue-400 text-xs font-bold uppercase mb-1">Last Updated</div>
-                <div className="text-sm text-blue-200 font-mono">Today</div>
-              </div>
+          {/* Header */}
+          <header className="space-y-4">
+            <div>
+              <h1 className="text-4xl font-black tracking-tighter text-white mb-2">
+                {activeSection === 'library' && '📚 Project Library'}
+                {activeSection === 'characters' && '👥 Story Bible: Characters'}
+                {activeSection === 'upload' && '⬆️ Upload New Content'}
+              </h1>
+              <p className="text-zinc-400 text-sm">
+                {activeSection === 'library' && 'Manage your manuscript acts and chapters'}
+                {activeSection === 'characters' && 'View and manage your character database'}
+                {activeSection === 'upload' && 'Add new acts or character profiles to your project'}
+              </p>
             </div>
+          </header>
 
-            {/* Acts by Book */}
-            {Object.entries(actsByBook).map(([bookId, bookActs]) => (
-              <section key={bookId} className="space-y-4">
-                <h2 className="text-xl font-bold text-white tracking-tight">
-                  Book {bookId.replace('book', '')} — {bookActs.length} act{bookActs.length !== 1 ? 's' : ''}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {bookActs.map(act => (
-                    <div key={act.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-600 transition-all hover:shadow-lg hover:shadow-white/5 group">
-                      <div className="p-6 space-y-4">
-                        <div>
-                          <h3 className="font-bold text-base text-white group-hover:text-blue-400 transition-colors">{act.heading}</h3>
-                          <p className="text-xs text-zinc-500 mt-1">{act.id}</p>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-zinc-500">
-                            {act.versions?.length || 1} version{(act.versions?.length || 1) !== 1 ? 's' : ''}
-                          </span>
-                          <span className="text-zinc-600 font-mono">
-                            {new Date(act.versions?.[act.versions.length - 1]?.createdAt || new Date()).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        <Link
-                          href={`/act/${act.id}`}
-                          className="block w-full px-4 py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest rounded-lg hover:bg-zinc-100 transition-all text-center"
-                        >
-                          Review Act ➡
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
+          {/* Library Section */}
+          {activeSection === 'library' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Quick Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                  <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Acts</div>
+                  <div className="text-3xl font-black text-white">{acts.length}</div>
                 </div>
-              </section>
-            ))}
-
-            {acts.length === 0 && (
-              <div className="text-center p-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                <p className="text-zinc-400 mb-4">No acts uploaded yet.</p>
-                <button
-                  onClick={() => setActiveSection('upload')}
-                  className="px-6 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-100 transition-all"
-                >
-                  Upload Your First Act
-                </button>
+                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                  <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Characters</div>
+                  <div className="text-3xl font-black text-white">{characters.length}</div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+                  <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Versions</div>
+                  <div className="text-3xl font-black text-white">{acts.reduce((sum, a) => sum + (a.versions?.length || 1), 0)}</div>
+                </div>
+                <div className="bg-blue-950/20 border border-blue-900/30 p-4 rounded-xl">
+                  <div className="text-blue-400 text-xs font-bold uppercase mb-1">Last Updated</div>
+                  <div className="text-sm text-blue-200 font-mono">Today</div>
+                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Characters Section */}
-        {activeSection === 'characters' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {characters.length === 0 ? (
-                <div className="col-span-full text-center p-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                  <p className="text-zinc-400 mb-4">No characters in your story bible yet.</p>
+              {/* Acts by Book */}
+              {Object.entries(actsByBook).map(([bookId, bookActs]) => (
+                <section key={bookId} className="space-y-4">
+                  <h2 className="text-xl font-bold text-white tracking-tight">
+                    Book {bookId.replace('book', '')} — {bookActs.length} act{bookActs.length !== 1 ? 's' : ''}
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {bookActs.map(act => (
+                      <div key={act.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-600 transition-all hover:shadow-lg hover:shadow-white/5 group">
+                        <div className="p-6 space-y-4">
+                          <div>
+                            <h3 className="font-bold text-base text-white group-hover:text-blue-400 transition-colors">{act.heading}</h3>
+                            <p className="text-xs text-zinc-500 mt-1">{act.id}</p>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-zinc-500">
+                              {act.versions?.length || 1} version{(act.versions?.length || 1) !== 1 ? 's' : ''}
+                            </span>
+                            <span className="text-zinc-600 font-mono">
+                              {new Date(act.versions?.[act.versions.length - 1]?.createdAt || new Date()).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <Link
+                            href={`/act/${act.id}`}
+                            className="block w-full px-4 py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest rounded-lg hover:bg-zinc-100 transition-all text-center"
+                          >
+                            Review Act ➡
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+
+              {acts.length === 0 && (
+                <div className="text-center p-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
+                  <p className="text-zinc-400 mb-4">No acts uploaded yet.</p>
                   <button
                     onClick={() => setActiveSection('upload')}
                     className="px-6 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-100 transition-all"
                   >
-                    Upload Character Profiles
+                    Upload Your First Act
                   </button>
                 </div>
-              ) : (
-                characters.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCharacter(c)}
-                    className="text-left p-6 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-emerald-500 hover:bg-zinc-800 transition-all shadow-lg group"
-                  >
-                    <h3 className="font-bold text-lg text-emerald-400 group-hover:text-emerald-300 transition-colors mb-3">{c.name}</h3>
-                    
-                    {c.core_want && c.core_want !== "Not specified" && (
-                      <div className="mb-3">
-                        <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Core Want</div>
-                        <p className="text-xs text-zinc-300 line-clamp-2">{c.core_want}</p>
-                      </div>
-                    )}
-                    
-                    {c.core_flaw && c.core_flaw !== "Not specified" && (
-                      <div>
-                        <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Core Flaw</div>
-                        <p className="text-xs text-zinc-300 line-clamp-2">{c.core_flaw}</p>
-                      </div>
-                    )}
-                  </button>
-                ))
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Upload Section */}
-        {activeSection === 'upload' && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl">
-            <Uploader />
-          </div>
-        )}
+          {/* Characters Section */}
+          {activeSection === 'characters' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {characters.length === 0 ? (
+                  <div className="col-span-full text-center p-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
+                    <p className="text-zinc-400 mb-4">No characters in your story bible yet.</p>
+                    <button
+                      onClick={() => setActiveSection('upload')}
+                      className="px-6 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-100 transition-all"
+                    >
+                      Upload Character Profiles
+                    </button>
+                  </div>
+                ) : (
+                  characters.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedCharacter(c)}
+                      className="text-left p-6 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-emerald-500 hover:bg-zinc-800 transition-all shadow-lg group"
+                    >
+                      <h3 className="font-bold text-lg text-emerald-400 group-hover:text-emerald-300 transition-colors mb-3">{c.name}</h3>
 
-      </div>
+                      {c.core_want && c.core_want !== "Not specified" && (
+                        <div className="mb-3">
+                          <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Core Want</div>
+                          <p className="text-xs text-zinc-300 line-clamp-2">{c.core_want}</p>
+                        </div>
+                      )}
+
+                      {c.core_flaw && c.core_flaw !== "Not specified" && (
+                        <div>
+                          <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Core Flaw</div>
+                          <p className="text-xs text-zinc-300 line-clamp-2">{c.core_flaw}</p>
+                        </div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Upload Section */}
+          {activeSection === 'upload' && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl">
+              <Uploader />
+            </div>
+          )}
 
         </div>
+
+
       </div>
 
       {/* Character Modal Overlay */}
@@ -244,6 +285,9 @@ export default function Home() {
               <div>
                 <h3 className="text-2xl font-black text-emerald-400 tracking-tight">{selectedCharacter.name}</h3>
                 <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">ID: {selectedCharacter.id}</p>
+                {selectedCharacter.aliases && selectedCharacter.aliases.length > 0 && (
+                    <p className="text-xs text-zinc-400 mt-1 italic">Also known as: {selectedCharacter.aliases.join(', ')}</p>
+                )}
               </div>
               <button
                 onClick={() => setSelectedCharacter(null)}

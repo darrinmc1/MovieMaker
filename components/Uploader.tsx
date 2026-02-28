@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 
 export default function Uploader() {
     const [uploading, setUploading] = useState(false)
+    const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
     const [mode, setMode] = useState<'act' | 'character'>('act')
     const router = useRouter()
 
@@ -13,6 +14,7 @@ export default function Uploader() {
         if (acceptedFiles.length === 0) return
 
         setUploading(true)
+        setStatus(null)
 
         for (const file of acceptedFiles) {
             const formData = new FormData()
@@ -27,10 +29,13 @@ export default function Uploader() {
 
                 if (!res.ok) {
                     const errorData = await res.json()
-                    alert(`Failed to upload ${file.name}: ${errorData.error}`)
+                    setStatus({ type: 'error', message: `Failed to upload ${file.name}: ${errorData.error}` })
+                } else {
+                    const data = await res.json()
+                    setStatus({ type: 'success', message: `Uploaded ${file.name} successfully!` })
                 }
             } catch (err: any) {
-                alert(`Error uploading ${file.name}: ${err.message}`)
+                setStatus({ type: 'error', message: `Error uploading ${file.name}: ${err.message}` })
             }
         }
 
@@ -81,6 +86,12 @@ export default function Uploader() {
                     </div>
                 )}
             </div>
+
+            {status && (
+                <div className={`mt-4 p-3 rounded-lg text-xs font-bold ${status.type === 'success' ? 'bg-green-950/30 text-green-400 border border-green-900/50' : 'bg-red-950/30 text-red-400 border border-red-900/50'}`}>
+                    {status.message}
+                </div>
+            )}
         </div>
     )
 }

@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server'
 import mammoth from 'mammoth'
-import fs from 'fs'
-import path from 'path'
+import { createClient } from '@supabase/supabase-js'
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase credentials')
+}
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function POST(req: Request) {
     try {
@@ -26,59 +35,69 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Unsupported file type. Please upload .txt or .docx" }, { status: 400 })
         }
 
-        const dataPath = path.join(process.cwd(), 'data')
-
         if (docType === 'character') {
-            const charsPath = path.join(dataPath, 'characters.json')
-            const existingChars = JSON.parse(fs.readFileSync(charsPath, 'utf8') || "[]")
-
             // Generate a simple ID from filename
             const id = filename.replace(/\.(docx|txt)$/i, '').toLowerCase().replace(/[^a-z0-9]/g, '-')
+            const name = filename.replace(/\.(docx|txt)$/i, '')
 
-            existingChars.push({
+            const { error } = await supabase.from('characters').upsert({
                 id,
-                name: filename.replace(/\.(docx|txt)$/i, ''),
+                name,
                 core_want: "Not specified",
                 core_flaw: "Not specified",
-                current_state: rawText.substring(0, 1000) + (rawText.length > 1000 ? "..." : "") // Save as current state or backstory
+                current_state: rawText.substring(0, 1000) + (rawText.length > 1000 ? "..." : "")
             })
 
-            fs.writeFileSync(charsPath, JSON.stringify(existingChars, null, 4))
+            if (error) throw error
+
             return NextResponse.json({ success: true, type: 'character', id })
 
         } else {
             // Document type: Act
-            const actsPath = path.join(dataPath, 'acts.json')
-            const existingActs = JSON.parse(fs.readFileSync(actsPath, 'utf8') || "[]")
-
-            // Extremely basic act chunking based on header occurrences
-            // Finding lines that start with "Act " or "Chapter "
+            // Robust chunking for "Act I: Title" or "Act 1: Title" patterns
             const lines = rawText.split('\n')
             let currentActText: string[] = []
+            
+            // Extract chapter number from filename (e.g. Ch1_revised -> 1)
+            const chapterMatch = filename.match(/Ch(\d+)/i)
+            const chapterNum = chapterMatch ? chapterMatch[1] : '1'
+            const chapterId = `ch-${chapterNum}`
+            
             let currentHeading = filename.replace(/\.(docx|txt)$/i, '')
-            if (/^Ch\d+$/i.test(currentHeading)) currentHeading += ' - Act 1'
+            if (/^Ch\d+/i.test(currentHeading)) currentHeading += ' - Preamble'
 
-            let actCount = existingActs.length + 1
+            // Get existing count for ID generation
+            const { count } = await supabase.from('acts').select('*', { count: 'exact', head: true })
+            let actCount = (count || 0) + 1
+            
             const parsedActs = []
 
+            // Regex to match "Act I", "Act 1", "Act I:", "ACT 1"
+            // It allows optional colons and titles after the number
+            const actHeaderRegex = /^(?:Act|ACT)\s+([IVXLCDM\d]+)(?:[:\s]\s*(.+))?$/i
+
             for (const line of lines) {
-                if (/^(?:Act|Chapter)\s/i.test(line.trim())) {
-                    // Flush existing if we have text
-                    if (currentActText.join('\n').trim().length > 50) {
+                const match = line.trim().match(actHeaderRegex)
+                
+                if (match) {
+                    // Flush existing text if we have content
+                    if (currentActText.join('\n').trim().length > 0) {
                         parsedActs.push({
-                            id: `doc-act-${actCount}`,
-                            chapterId: `ch-${actCount}`,
-                            heading: currentHeading + (parsedActs.length > 0 ? ` - Act ${parsedActs.length + 1}` : ""),
-                            versions: [{
-                                versionId: `v1-${Date.now()}`,
-                                text: currentActText.join('\n').trim(),
-                                createdAt: new Date().toISOString()
-                            }]
+                            id: `doc-act-${actCount}-${Date.now()}`,
+                            chapterId,
+                            heading: currentHeading,
+                            text: currentActText.join('\n').trim()
                         })
                         actCount++
                     }
-                    currentHeading = line.trim()
-                    currentActText = [line]
+                    
+                    // Start new act
+                    // match[1] = Number/Roman (e.g. "I")
+                    // match[2] = Title (e.g. "Dawn's Reckoning") - optional
+                    const num = match[1]
+                    const title = match[2] || ""
+                    currentHeading = `Act ${num}${title ? ': ' + title : ''}`
+                    currentActText = [] // Don't include the header in the body text
                 } else {
                     currentActText.push(line)
                 }
@@ -87,33 +106,47 @@ export async function POST(req: Request) {
             // Flush the last act
             if (currentActText.join('\n').trim().length > 0) {
                 parsedActs.push({
-                    id: `doc-act-${actCount}`,
-                    chapterId: `ch-${actCount}`,
-                    heading: currentHeading + (parsedActs.length > 0 ? ` - Act ${parsedActs.length + 1}` : ""),
-                    versions: [{
-                        versionId: `v1-${Date.now()}`,
-                        text: currentActText.join('\n').trim(),
-                        createdAt: new Date().toISOString()
-                    }]
+                    id: `doc-act-${actCount}-${Date.now()}`,
+                    chapterId,
+                    heading: currentHeading,
+                    text: currentActText.join('\n').trim()
                 })
             }
 
-            // If no chapters were found, just ingest the whole thing as one act
+            // If no chapters were found, ingest the whole thing as one act
             if (parsedActs.length === 0 && rawText.trim().length > 0) {
                 parsedActs.push({
                     id: `doc-act-${Date.now()}`,
                     chapterId: `ch-1`,
                     heading: currentHeading,
-                    versions: [{
-                        versionId: `v1-${Date.now()}`,
-                        text: rawText.trim(),
-                        createdAt: new Date().toISOString()
-                    }]
+                    text: rawText.trim()
                 })
             }
 
-            const newActsArray = [...existingActs, ...parsedActs]
-            fs.writeFileSync(actsPath, JSON.stringify(newActsArray, null, 4))
+            // Insert into Supabase
+            for (const act of parsedActs) {
+                // Insert Act
+                const { error: actError } = await supabase.from('acts').upsert({
+                    id: act.id,
+                    chapter_id: act.chapterId,
+                    heading: act.heading
+                })
+
+                if (actError) {
+                    console.error("Act insert error:", actError)
+                    continue
+                }
+
+                // Insert Initial Version
+                const { error: verError } = await supabase.from('act_versions').insert({
+                    act_id: act.id,
+                    version_id: `v1-${Date.now()}`,
+                    text: act.text,
+                    is_current: true
+                })
+
+                if (verError) console.error("Version insert error:", verError)
+            }
 
             return NextResponse.json({ success: true, type: 'act', importedCount: parsedActs.length })
         }

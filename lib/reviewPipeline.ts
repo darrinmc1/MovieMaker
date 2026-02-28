@@ -77,9 +77,16 @@ Outline Findings identified by system: ${outlineFindings.join(' | ')}
     `
 
     // Generate strict JSON using Gemini
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy-key")
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.error("❌ GEMINI_API_KEY is missing from environment variables.");
+        // We throw here so the UI receives the error instead of a silent failure with dummy data
+        throw new Error("GEMINI_API_KEY is not configured.");
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-2.5-pro", // High-capability model for editorial reasoning
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: {

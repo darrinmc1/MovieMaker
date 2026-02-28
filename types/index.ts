@@ -35,8 +35,10 @@ export type ChapterSynthesis = {
 export type Character = {
     id: string
     name: string
+    aliases?: string[]
     core_want?: string
     core_flaw?: string
     current_state?: string
     traits?: string[]
+    image_url?: string
 }

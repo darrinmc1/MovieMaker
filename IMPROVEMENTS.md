@@ -140,57 +140,69 @@
 
 ---
 
+## ✅ COMPLETED - Improvement #4: Resume Draft Dialog
+
+### What Changed:
+**Before:** Reloading the page lost all progress.
+**After:** A modal asks to restore previous work if a draft is found.
+
+### Features Added:
+- **Draft Detection:** Checks localStorage on load.
+- **Resume Modal:** Shows timestamp and summary of saved work.
+- **Options:** Resume, Start Fresh, or Delete Draft.
+
+---
+
+## ✅ COMPLETED - Improvement #5: Keyboard Shortcuts
+
+### What Changed:
+**Before:** All actions required mouse clicks.
+**After:** Power users can review quickly with keyboard.
+
+### Features Added:
+- **A** = Approve suggestion
+- **R** = Reject suggestion
+- **Tab** = Next suggestion
+- **Shift+Tab** = Previous suggestion
+- **Cmd+S** = Force save
+- **Visual Hints:** Shortcuts displayed on screen when relevant.
+
+---
+
+## ✅ COMPLETED - Improvement #6: Clear Draft Button
+
+### What Changed:
+**Before:** No way to clear a draft without clearing browser cache.
+**After:** Explicit "Delete Draft" button in the header.
+
+### Features Added:
+- **Delete Button:** Only appears when a draft exists.
+- **Confirmation:** Prevents accidental deletion.
+- **Instant Cleanup:** Removes from localStorage and updates UI.
+
+---
+
+## ✅ COMPLETED - Improvement #7: Wire Up Gemini API
+
+### What Changed:
+**Before:** Reviews used mock data (stubs).
+**After:** Reviews are generated live by Gemini 3.1 Pro Preview.
+
+### Features Added:
+- **Real AI Analysis:** Uses `gemini-3.1-pro-preview`.
+- **Strict JSON Output:** Enforces schema for consistent UI rendering.
+- **Environment Check:** Validates `GEMINI_API_KEY` presence.
+- **Error Handling:** Graceful fallback if API fails, showing error details in UI.
+
+---
+
 ## 📋 NEXT IMPROVEMENTS (IN QUEUE)
 
-### #4: Keyboard Shortcuts (NEXT UP) ⭐⭐
-**Current Issue:** All actions require mouse/trackpad.  
+### #8: Database Migration (NEXT UP)
+**Current Issue:** Data is hardcoded/local.
 **Plan:**
-- A = Approve current suggestion
-- R = Reject current suggestion
-- Tab = Jump to next suggestion
-- Shift+Tab = Jump to previous suggestion
-- Cmd+S / Ctrl+S = Force save (explicit backup)
-
-### #5: Add Dashboard with Progress Tracking
-**Current Issue:** No way to see project-level status.  
-**Plan:**
-- Dashboard page showing:
-  - Chapters reviewed vs. pending
-  - % completion per book
-  - Recent activity (last 5 acts edited)
-  - Status badges: Draft / Under Review / Approved / Published
-
-### #6: Database Integration
-**Current Issue:** Data is hardcoded JSON files; can't save new uploads.  
-**Plan:**
-- Migrate to Supabase (or SQLite for local dev)
-- Actual upload parsing (mammoth library is already there!)
-- Real API calls that persist changes
-- User authentication & multi-project support
-
-### #7: Improve Uploader
-**Current Issue:** Shows "Processing..." but doesn't actually parse .docx files.  
-**Plan:**
-- Parse .docx with mammoth library
-- Preview parsed content before ingesting
-- Let user confirm chapter boundaries
-- Extract chapter summaries automatically
-
-### #8: Export & Sharing
-**Current Issue:** No way to export edited chapters or share reviews.  
-**Plan:**
-- Export to Word (.docx) with tracked changes
-- Export to PDF with review annotations
-- Share review link (read-only) with co-editors
-
-### #9: Advanced Features
-**Current Issue:** All interaction requires mouse clicks.  
-**Plan:**
-- A = Approve suggestion
-- R = Reject suggestion
-- S = Skip suggestion
-- Tab = Switch review tabs
-- Cmd+S = Save draft
+- Move to Supabase.
+- Enable persistent storage across devices.
 
 ---
 

@@ -8,7 +8,12 @@ export function checkContinuity(act: Act, characters: Character[]): ContinuityWa
     const text = version.text
 
     characters.forEach(c => {
-        if (text.includes(c.name) && !c.current_state) {
+        // Check main name
+        const nameMatch = text.includes(c.name)
+        // Check aliases if they exist
+        const aliasMatch = c.aliases ? c.aliases.some(alias => text.includes(alias)) : false
+
+        if ((nameMatch || aliasMatch) && !c.current_state) {
             warnings.push({
                 warningId: `${act.id}-${c.id}`,
                 scope: 'act',
