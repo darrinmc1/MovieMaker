@@ -1,3 +1,10 @@
+This repository contains two separate Next.js applications in a simple monorepo:
+
+* **movie-maker** (root) – the original MovieMaker app.
+* **novel-reading-platform** – a book reader project located in the `novel-reading-platform/` subfolder.
+
+Both projects can be run independently. You can treat the repo as a workspace if you prefer a single install step.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
