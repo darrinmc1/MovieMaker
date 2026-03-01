@@ -1,328 +1,231 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Uploader from '@/components/Uploader';
-import { supabase } from '@/lib/supabaseClient';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import RunAllModal from '@/components/RunAllModal'
 
-import { Character } from '@/types';
+interface ChapterMeta {
+  chapterNum: number
+  title: string
+  filename: string
+  exists: boolean
+  actCount: number
+  wordCount: number
+  reviewStatus: 'not_reviewed' | 'in_progress' | 'reviewed' | 'finalized'
+  lastReviewed: string | null
+  score: string | null
+}
+
+function scoreColor(s: string | null) {
+  if (!s) return 'text-zinc-700'
+  const n = parseFloat(s)
+  if (n >= 8) return 'text-emerald-400'
+  if (n >= 6) return 'text-amber-400'
+  return 'text-rose-400'
+}
+
+const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string }> = {
+  not_reviewed: { label: 'Not reviewed', dot: 'bg-zinc-700', text: 'text-zinc-600' },
+  in_progress: { label: 'In progress', dot: 'bg-amber-500', text: 'text-amber-400' },
+  reviewed: { label: 'Reviewed', dot: 'bg-blue-500', text: 'text-blue-400' },
+  finalized: { label: 'Finalized', dot: 'bg-emerald-500', text: 'text-emerald-400' },
+}
 
 export default function Home() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeSection, setActiveSection] = useState<'library' | 'characters' | 'upload'>('library');
-  const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
-  
-  const [acts, setActs] = useState<any[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter()
+  const [chapters, setChapters] = useState<ChapterMeta[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [hovered, setHovered] = useState<number | null>(null)
+  const [showRunAll, setShowRunAll] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
-  // Fetch data from Supabase
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      
-      // Fetch Acts with Versions
-      const { data: actsData, error: actsError } = await supabase
-        .from('acts')
-        .select('*, versions:act_versions(*)')
-        .order('chapter_id', { ascending: true });
-        
-      if (actsError) console.error('Error fetching acts:', actsError);
-      else setActs(actsData || []);
+    fetch('/api/chapters')
+      .then(r => r.json())
+      .then(d => { setChapters(d); setLoading(false) })
+      .catch(e => { setError(e.message); setLoading(false) })
+  }, [reloadKey])
 
-      // Fetch Characters
-      const { data: charsData, error: charsError } = await supabase
-        .from('characters')
-        .select('*')
-        .order('name', { ascending: true });
+  const totalWords = chapters.reduce((n, c) => n + (c.wordCount || 0), 0)
+  const reviewed = chapters.filter(c => c.reviewStatus !== 'not_reviewed').length
+  const finalized = chapters.filter(c => c.reviewStatus === 'finalized').length
+  const scores = chapters.filter(c => c.score).map(c => parseFloat(c.score!))
+  const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null
 
-      if (charsError) console.error('Error fetching characters:', charsError);
-      else setCharacters(charsData as Character[] || []);
-      
-      setLoading(false);
-    };
-
-    fetchData();
-  }, []);
-
-  // Group acts by book (assuming bookId is part of the act or derived)
-  // Since our SQL schema didn't explicitly have book_id, we might need to derive it from ID or add it.
-  // The original acts.json had bookId. My schema.sql didn't have it explicitly but it's fine if we just
-  // assume it's part of the data or we just default to 'book-1'.
-  // Actually, let's map the DB response to the shape the UI expects.
-  
-  const mappedActs = acts.map(act => ({
-    ...act,
-    bookId: act.id.includes('book-2') ? 'book-2' : 'book-1', // Simple heuristic or derived from ID
-    versions: act.versions // Supabase returns joined data on the key we specified
-  }));
-
-  const actsByBook = mappedActs.reduce((acc, act) => {
-    const bookId = act.bookId || 'book-1';
-    if (!acc[bookId]) acc[bookId] = [];
-    acc[bookId].push(act);
-    return acc;
-  }, {} as Record<string, any[]>);
-
-  const sidebarItems = [
-    { id: 'library', label: 'Library', icon: '📚', count: acts.length },
-    { id: 'characters', label: 'Characters', icon: '👥', count: characters.length },
-    { id: 'upload', label: 'Upload New', icon: '⬆️' },
-  ];
-
-  if (loading) {
-    return <div className="min-h-screen bg-black text-zinc-500 flex items-center justify-center">Loading database...</div>;
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="relative w-8 h-8">
+        <div className="absolute inset-0 rounded-full border-2 border-zinc-800" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-zinc-500 animate-spin" />
+      </div>
+    </div>
+  )
 
   return (
-    <main className="min-h-screen bg-black text-zinc-100 flex font-sans">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} bg-zinc-950 border-r border-zinc-800 transition-all duration-300 flex flex-col`}>
-        <div className="p-4 flex items-center justify-between border-b border-zinc-800">
-          {sidebarOpen && <h2 className="text-lg font-black text-white tracking-tighter">EDITOR</h2>}
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 hover:bg-zinc-900 rounded-lg transition-colors text-zinc-400 hover:text-white"
-            title={sidebarOpen ? 'Collapse' : 'Expand'}
-          >
-            {sidebarOpen ? '◀' : '▶'}
+    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
+      {/* Top nav */}
+      <nav className="flex items-center justify-between px-8 py-3 border-b border-zinc-900">
+        <span className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">VBook Editor</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push('/search')}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs rounded-lg transition-all">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            Search
+          </button>
+          <button onClick={() => router.push('/characters')}
+            className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs rounded-lg transition-all">
+            👥 Characters
+          </button>
+          <button onClick={() => router.push('/pipeline')}
+            className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs rounded-lg transition-all">
+            ⚡ Pipeline
+          </button>
+          <button onClick={() => setShowRunAll(true)}
+            className="px-3 py-1.5 bg-zinc-800 hover:bg-white hover:text-black border border-zinc-700 text-zinc-300 text-xs font-bold rounded-lg transition-all">
+            ▶ Review All
           </button>
         </div>
+      </nav>
 
-        <nav className="flex-1 space-y-2 p-4">
-          {sidebarItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id as any)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeSection === item.id
-                  ? 'bg-white text-black font-bold'
-                  : 'text-zinc-400 hover:bg-zinc-900 hover:text-white'
-                }`}
-              title={!sidebarOpen ? item.label : undefined}
-            >
-              <span className="text-lg flex-shrink-0">{item.icon}</span>
-              {sidebarOpen && (
-                <div className="flex-1">
-                  <div className="text-sm font-bold">{item.label}</div>
-                  {item.count !== undefined && (
-                    <div className="text-xs text-zinc-500">{item.count} items</div>
-                  )}
-                </div>
-              )}
-              {!sidebarOpen && item.count !== undefined && (
-                <div className="absolute left-20 bg-zinc-900 px-2 py-1 rounded text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none">
-                  {item.count}
-                </div>
-              )}
-            </button>
-          ))}
-        </nav>
+      {/* Top stripe */}
+      <div className="h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
 
-        <div className="p-4 border-t border-zinc-800 space-y-2">
-          <button className="w-full px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold rounded-lg transition-colors">
-            {sidebarOpen ? '⚙️ Settings' : '⚙️'}
-          </button>
-          <button className="w-full px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-bold rounded-lg transition-colors">
-            {sidebarOpen ? '❓ Help' : '❓'}
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-6xl mx-auto p-8 space-y-8">
-
-          {/* Header */}
-          <header className="space-y-4">
-            <div>
-              <h1 className="text-4xl font-black tracking-tighter text-white mb-2">
-                {activeSection === 'library' && '📚 Project Library'}
-                {activeSection === 'characters' && '👥 Story Bible: Characters'}
-                {activeSection === 'upload' && '⬆️ Upload New Content'}
-              </h1>
-              <p className="text-zinc-400 text-sm">
-                {activeSection === 'library' && 'Manage your manuscript acts and chapters'}
-                {activeSection === 'characters' && 'View and manage your character database'}
-                {activeSection === 'upload' && 'Add new acts or character profiles to your project'}
-              </p>
-            </div>
-          </header>
-
-          {/* Library Section */}
-          {activeSection === 'library' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                  <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Acts</div>
-                  <div className="text-3xl font-black text-white">{acts.length}</div>
-                </div>
-                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                  <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Characters</div>
-                  <div className="text-3xl font-black text-white">{characters.length}</div>
-                </div>
-                <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
-                  <div className="text-zinc-500 text-xs font-bold uppercase mb-1">Total Versions</div>
-                  <div className="text-3xl font-black text-white">{acts.reduce((sum, a) => sum + (a.versions?.length || 1), 0)}</div>
-                </div>
-                <div className="bg-blue-950/20 border border-blue-900/30 p-4 rounded-xl">
-                  <div className="text-blue-400 text-xs font-bold uppercase mb-1">Last Updated</div>
-                  <div className="text-sm text-blue-200 font-mono">Today</div>
-                </div>
-              </div>
-
-              {/* Acts by Book */}
-              {Object.entries(actsByBook).map(([bookId, bookActs]) => (
-                <section key={bookId} className="space-y-4">
-                  <h2 className="text-xl font-bold text-white tracking-tight">
-                    Book {bookId.replace('book', '')} — {bookActs.length} act{bookActs.length !== 1 ? 's' : ''}
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {bookActs.map(act => (
-                      <div key={act.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-zinc-600 transition-all hover:shadow-lg hover:shadow-white/5 group">
-                        <div className="p-6 space-y-4">
-                          <div>
-                            <h3 className="font-bold text-base text-white group-hover:text-blue-400 transition-colors">{act.heading}</h3>
-                            <p className="text-xs text-zinc-500 mt-1">{act.id}</p>
-                          </div>
-
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-zinc-500">
-                              {act.versions?.length || 1} version{(act.versions?.length || 1) !== 1 ? 's' : ''}
-                            </span>
-                            <span className="text-zinc-600 font-mono">
-                              {new Date(act.versions?.[act.versions.length - 1]?.createdAt || new Date()).toLocaleDateString()}
-                            </span>
-                          </div>
-
-                          <Link
-                            href={`/act/${act.id}`}
-                            className="block w-full px-4 py-2.5 bg-white text-black text-xs font-black uppercase tracking-widest rounded-lg hover:bg-zinc-100 transition-all text-center"
-                          >
-                            Review Act ➡
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-
-              {acts.length === 0 && (
-                <div className="text-center p-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                  <p className="text-zinc-400 mb-4">No acts uploaded yet.</p>
-                  <button
-                    onClick={() => setActiveSection('upload')}
-                    className="px-6 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-100 transition-all"
-                  >
-                    Upload Your First Act
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Characters Section */}
-          {activeSection === 'characters' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {characters.length === 0 ? (
-                  <div className="col-span-full text-center p-12 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                    <p className="text-zinc-400 mb-4">No characters in your story bible yet.</p>
-                    <button
-                      onClick={() => setActiveSection('upload')}
-                      className="px-6 py-3 bg-white text-black text-sm font-bold rounded-lg hover:bg-zinc-100 transition-all"
-                    >
-                      Upload Character Profiles
-                    </button>
-                  </div>
-                ) : (
-                  characters.map(c => (
-                    <button
-                      key={c.id}
-                      onClick={() => setSelectedCharacter(c)}
-                      className="text-left p-6 bg-zinc-900 border border-zinc-800 rounded-xl hover:border-emerald-500 hover:bg-zinc-800 transition-all shadow-lg group"
-                    >
-                      <h3 className="font-bold text-lg text-emerald-400 group-hover:text-emerald-300 transition-colors mb-3">{c.name}</h3>
-
-                      {c.core_want && c.core_want !== "Not specified" && (
-                        <div className="mb-3">
-                          <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Core Want</div>
-                          <p className="text-xs text-zinc-300 line-clamp-2">{c.core_want}</p>
-                        </div>
-                      )}
-
-                      {c.core_flaw && c.core_flaw !== "Not specified" && (
-                        <div>
-                          <div className="text-[10px] text-zinc-600 uppercase font-bold mb-1">Core Flaw</div>
-                          <p className="text-xs text-zinc-300 line-clamp-2">{c.core_flaw}</p>
-                        </div>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Upload Section */}
-          {activeSection === 'upload' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl">
-              <Uploader />
-            </div>
-          )}
-
-        </div>
-
-
-      </div>
-
-      {/* Character Modal Overlay */}
-      {selectedCharacter && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-zinc-950 border border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-zinc-900 flex justify-between items-center bg-zinc-900/50">
-              <div>
-                <h3 className="text-2xl font-black text-emerald-400 tracking-tight">{selectedCharacter.name}</h3>
-                <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest mt-1">ID: {selectedCharacter.id}</p>
-                {selectedCharacter.aliases && selectedCharacter.aliases.length > 0 && (
-                    <p className="text-xs text-zinc-400 mt-1 italic">Also known as: {selectedCharacter.aliases.join(', ')}</p>
-                )}
-              </div>
-              <button
-                onClick={() => setSelectedCharacter(null)}
-                className="w-8 h-8 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-zinc-700 transition-colors font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-8 overflow-y-auto space-y-6">
-              {selectedCharacter.core_want !== "Not specified" && (
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Core Want</h4>
-                  <p className="text-sm text-zinc-200 font-medium">{selectedCharacter.core_want}</p>
-                </div>
-              )}
-              {selectedCharacter.core_flaw !== "Not specified" && (
-                <div>
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Core Flaw</h4>
-                  <p className="text-sm text-zinc-200 font-medium">{selectedCharacter.core_flaw}</p>
-                </div>
-              )}
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  Current Narrative State / Profile
-                </h4>
-                <div className="text-sm text-zinc-300 leading-relaxed font-serif bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800/50 whitespace-pre-wrap">
-                  {selectedCharacter.current_state}
-                </div>
-              </div>
-            </div>
+      {/* Header */}
+      <header className="max-w-4xl mx-auto px-8 pt-14 pb-10">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] mb-2">The Concord of Nine · Book 1</p>
+            <h1 className="text-4xl font-black text-white tracking-tight leading-none">
+              The Dragon's<br />Last Breath
+            </h1>
+          </div>
+          <div className="text-right pb-1">
+            <div className="text-[10px] text-zinc-700 uppercase tracking-widest mb-1">Editorial Progress</div>
+            <div className="text-3xl font-black text-white">{reviewed}<span className="text-zinc-700">/{chapters.length}</span></div>
+            <div className="text-[10px] text-zinc-700 mt-0.5">{finalized} finalized</div>
           </div>
         </div>
+
+        {/* Progress bar */}
+        <div className="mt-8 space-y-1.5">
+          <div className="h-1 bg-zinc-900 rounded-full overflow-hidden">
+            <div className="h-full bg-zinc-500 rounded-full transition-all duration-700"
+              style={{ width: `${(reviewed / Math.max(chapters.length, 1)) * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-zinc-700">
+            <span>{Math.round((reviewed / Math.max(chapters.length, 1)) * 100)}% reviewed</span>
+            <span>{(totalWords / 1000).toFixed(0)}k words total{avgScore ? ` · avg ${avgScore.toFixed(1)}/10` : ''}</span>
+          </div>
+        </div>
+      </header>
+
+      <div className="h-px bg-zinc-900 mx-8" />
+
+      {/* Chapter list */}
+      <main className="max-w-4xl mx-auto px-8 py-8">
+
+        {error && (
+          <div className="mb-6 bg-rose-950/30 border border-rose-900/40 text-rose-300 text-xs px-5 py-4 rounded-xl">
+            ⚠ {error} — Check CHAPTERS_FOLDER in .env.local
+          </div>
+        )}
+
+        <div className="space-y-1">
+          {chapters.map((ch, idx) => {
+            const status = STATUS_CONFIG[ch.reviewStatus] || STATUS_CONFIG.not_reviewed
+            const isHovered = hovered === ch.chapterNum
+            const n = parseFloat(ch.score || '0')
+
+            return (
+              <div
+                key={ch.chapterNum}
+                onMouseEnter={() => setHovered(ch.chapterNum)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => ch.exists && router.push(`/chapter/${ch.chapterNum}`)}
+                className={`group flex items-center gap-6 px-4 py-4 rounded-xl transition-all duration-150 cursor-pointer ${!ch.exists ? 'opacity-30 cursor-not-allowed' :
+                    isHovered ? 'bg-zinc-900' : ''
+                  }`}
+              >
+                {/* Number */}
+                <div className="flex-none w-8 text-right">
+                  <span className={`text-xs font-black transition-colors ${isHovered ? 'text-zinc-400' : 'text-zinc-800'}`}>
+                    {String(ch.chapterNum).padStart(2, '0')}
+                  </span>
+                </div>
+
+                {/* Title */}
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-semibold transition-colors leading-snug ${isHovered ? 'text-white' : 'text-zinc-400'}`}>
+                    {ch.title}
+                  </div>
+                  <div className="flex items-center gap-2.5 mt-0.5">
+                    <span className="text-[10px] text-zinc-700">{ch.actCount} acts</span>
+                    <span className="text-zinc-800 text-[10px]">·</span>
+                    <span className="text-[10px] text-zinc-700">{(ch.wordCount / 1000).toFixed(1)}k words</span>
+                  </div>
+                </div>
+
+                {/* Score */}
+                <div className="flex-none w-16 text-right">
+                  {ch.score ? (
+                    <span className={`text-base font-black ${scoreColor(ch.score)}`}>
+                      {ch.score}
+                      <span className="text-xs text-zinc-700">/10</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-zinc-800">—</span>
+                  )}
+                </div>
+
+                {/* Score bar */}
+                <div className="flex-none w-20 h-1 bg-zinc-900 rounded-full overflow-hidden">
+                  {ch.score && (
+                    <div className={`h-full rounded-full transition-all ${n >= 8 ? 'bg-emerald-600' : n >= 6 ? 'bg-amber-600' : 'bg-rose-700'}`}
+                      style={{ width: `${(n / 10) * 100}%` }} />
+                  )}
+                </div>
+
+                {/* Status */}
+                <div className="flex-none flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-none ${status.dot}`} />
+                  <span className={`text-[10px] font-medium w-20 ${status.text}`}>{status.label}</span>
+                </div>
+
+                {/* Arrow */}
+                <div className={`flex-none transition-all duration-150 ${isHovered && ch.exists ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1'}`}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Summary footer */}
+        <div className="mt-12 pt-6 border-t border-zinc-900 grid grid-cols-3 gap-6">
+          {[
+            { label: 'Total Word Count', value: `${(totalWords / 1000).toFixed(1)}k` },
+            { label: 'Average Score', value: avgScore ? `${avgScore.toFixed(1)}/10` : '—', color: avgScore ? scoreColor(String(avgScore)) : 'text-zinc-700' },
+            { label: 'Chapters Finalized', value: `${finalized} / ${chapters.length}` },
+          ].map(stat => (
+            <div key={stat.label}>
+              <div className="text-[9px] font-black text-zinc-700 uppercase tracking-widest mb-1">{stat.label}</div>
+              <div className={`text-2xl font-black ${(stat as any).color || 'text-white'}`}>{stat.value}</div>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      {/* Run All Modal */}
+      {showRunAll && (
+        <RunAllModal
+          onClose={() => setShowRunAll(false)}
+          onComplete={() => setReloadKey(k => k + 1)}
+        />
       )}
-    </main>
-  );
+    </div>
+  )
 }
