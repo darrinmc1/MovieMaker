@@ -25,20 +25,20 @@ function scoreColor(s: string | null) {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string }> = {
-  not_reviewed: { label: 'Not reviewed', dot: 'bg-zinc-700', text: 'text-zinc-600' },
-  in_progress: { label: 'In progress', dot: 'bg-amber-500', text: 'text-amber-400' },
-  reviewed: { label: 'Reviewed', dot: 'bg-blue-500', text: 'text-blue-400' },
-  finalized: { label: 'Finalized', dot: 'bg-emerald-500', text: 'text-emerald-400' },
+  not_reviewed: { label: 'Not reviewed', dot: 'bg-zinc-700',   text: 'text-zinc-600'  },
+  in_progress:  { label: 'In progress',  dot: 'bg-amber-500',  text: 'text-amber-400' },
+  reviewed:     { label: 'Reviewed',     dot: 'bg-blue-500',   text: 'text-blue-400'  },
+  finalized:    { label: 'Finalized',    dot: 'bg-emerald-500',text: 'text-emerald-400'},
 }
 
 export default function Home() {
   const router = useRouter()
-  const [chapters, setChapters] = useState<ChapterMeta[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [hovered, setHovered] = useState<number | null>(null)
+  const [chapters, setChapters]   = useState<ChapterMeta[]>([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState<string | null>(null)
+  const [hovered, setHovered]     = useState<number | null>(null)
   const [showRunAll, setShowRunAll] = useState(false)
-  const [reloadKey, setReloadKey] = useState(0)
+  const [reloadKey, setReloadKey]   = useState(0)
 
   useEffect(() => {
     fetch('/api/chapters')
@@ -47,11 +47,11 @@ export default function Home() {
       .catch(e => { setError(e.message); setLoading(false) })
   }, [reloadKey])
 
-  const totalWords = chapters.reduce((n, c) => n + (c.wordCount || 0), 0)
-  const reviewed = chapters.filter(c => c.reviewStatus !== 'not_reviewed').length
-  const finalized = chapters.filter(c => c.reviewStatus === 'finalized').length
-  const scores = chapters.filter(c => c.score).map(c => parseFloat(c.score!))
-  const avgScore = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null
+  const totalWords    = chapters.reduce((n, c) => n + (c.wordCount || 0), 0)
+  const reviewed      = chapters.filter(c => c.reviewStatus !== 'not_reviewed').length
+  const finalized     = chapters.filter(c => c.reviewStatus === 'finalized').length
+  const scores        = chapters.filter(c => c.score).map(c => parseFloat(c.score!))
+  const avgScore      = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null
 
   if (loading) return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
@@ -71,7 +71,7 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <button onClick={() => router.push('/search')}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs rounded-lg transition-all">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             Search
           </button>
           <button onClick={() => router.push('/characters')}
@@ -94,22 +94,12 @@ export default function Home() {
 
       {/* Header */}
       <header className="max-w-4xl mx-auto px-8 pt-14 pb-10">
-        <div className="flex items-end justify-between gap-8">
-          {/* Cover + Title */}
-          <div className="flex items-end gap-6">
-            <div className="flex-none w-24 h-36 rounded-lg overflow-hidden shadow-2xl shadow-black/60 border border-zinc-800">
-              <img
-                src="/book1-cover.jpg"
-                alt="The Dragon's Last Breath cover"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] mb-2">The Concord of Nine · Book 1</p>
-              <h1 className="text-4xl font-black text-white tracking-tight leading-none">
-                The Dragon's<br />Last Breath
-              </h1>
-            </div>
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] mb-2">The Concord of Nine · Book 1</p>
+            <h1 className="text-4xl font-black text-white tracking-tight leading-none">
+              The Dragon's<br />Last Breath
+            </h1>
           </div>
           <div className="text-right pb-1">
             <div className="text-[10px] text-zinc-700 uppercase tracking-widest mb-1">Editorial Progress</div>
@@ -154,9 +144,10 @@ export default function Home() {
                 onMouseEnter={() => setHovered(ch.chapterNum)}
                 onMouseLeave={() => setHovered(null)}
                 onClick={() => ch.exists && router.push(`/chapter/${ch.chapterNum}`)}
-                className={`group flex items-center gap-6 px-4 py-4 rounded-xl transition-all duration-150 cursor-pointer ${!ch.exists ? 'opacity-30 cursor-not-allowed' :
-                    isHovered ? 'bg-zinc-900' : ''
-                  }`}
+                className={`group flex items-center gap-6 px-4 py-4 rounded-xl transition-all duration-150 cursor-pointer ${
+                  !ch.exists ? 'opacity-30 cursor-not-allowed' :
+                  isHovered ? 'bg-zinc-900' : ''
+                }`}
               >
                 {/* Number */}
                 <div className="flex-none w-8 text-right">
@@ -206,7 +197,7 @@ export default function Home() {
                 {/* Arrow */}
                 <div className={`flex-none transition-all duration-150 ${isHovered && ch.exists ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-1'}`}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-zinc-500">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
                   </svg>
                 </div>
               </div>
@@ -217,9 +208,9 @@ export default function Home() {
         {/* Summary footer */}
         <div className="mt-12 pt-6 border-t border-zinc-900 grid grid-cols-3 gap-6">
           {[
-            { label: 'Total Word Count', value: `${(totalWords / 1000).toFixed(1)}k` },
-            { label: 'Average Score', value: avgScore ? `${avgScore.toFixed(1)}/10` : '—', color: avgScore ? scoreColor(String(avgScore)) : 'text-zinc-700' },
-            { label: 'Chapters Finalized', value: `${finalized} / ${chapters.length}` },
+            { label: 'Total Word Count',    value: `${(totalWords / 1000).toFixed(1)}k` },
+            { label: 'Average Score',       value: avgScore ? `${avgScore.toFixed(1)}/10` : '—', color: avgScore ? scoreColor(String(avgScore)) : 'text-zinc-700' },
+            { label: 'Chapters Finalized',  value: `${finalized} / ${chapters.length}` },
           ].map(stat => (
             <div key={stat.label}>
               <div className="text-[9px] font-black text-zinc-700 uppercase tracking-widest mb-1">{stat.label}</div>
@@ -228,7 +219,9 @@ export default function Home() {
           ))}
         </div>
       </main>
-
+    </div>
+  )
+}
       {/* Run All Modal */}
       {showRunAll && (
         <RunAllModal
@@ -236,6 +229,3 @@ export default function Home() {
           onComplete={() => setReloadKey(k => k + 1)}
         />
       )}
-    </div>
-  )
-}

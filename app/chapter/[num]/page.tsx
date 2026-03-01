@@ -50,6 +50,41 @@ function scoreColor(s: string | null) {
   return 'text-rose-400'
 }
 
+function ActSection({ act, refCallback }: { act: Act; refCallback: (el: HTMLDivElement | null) => void }) {
+  const [collapsed, setCollapsed] = useState(false)
+
+  return (
+    <div ref={refCallback} className="mb-16">
+      {/* Act heading */}
+      <div className="flex items-center gap-4 mb-6 group cursor-pointer" onClick={() => setCollapsed(c => !c)}>
+        <div className="flex-none">
+          <div className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-0.5">Act {act.number}</div>
+          <div className="text-lg font-black text-zinc-200 leading-tight">{act.name}</div>
+        </div>
+        <div className="flex-1 h-px bg-zinc-800" />
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-zinc-700">{act.wordCount.toLocaleString()} words</span>
+          <button className="w-6 h-6 rounded-md bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 hover:text-zinc-300 transition-colors text-xs">
+            {collapsed ? '▼' : '▲'}
+          </button>
+        </div>
+      </div>
+
+      {/* Act content */}
+      {!collapsed && (
+        <div className="text-base text-zinc-300 leading-8 whitespace-pre-wrap"
+          style={{ fontFamily: "'Georgia', 'Times New Roman', serif", letterSpacing: '0.01em' }}>
+          {act.content}
+        </div>
+      )}
+
+      {collapsed && (
+        <div className="text-xs text-zinc-700 italic py-2 pl-1">Act collapsed — click heading to expand</div>
+      )}
+    </div>
+  )
+}
+
 export default function ChapterPage() {
   const router = useRouter()
   const params = useParams()
@@ -176,6 +211,9 @@ export default function ChapterPage() {
             Library
           </button>
           <div className="w-px h-4 bg-zinc-800 flex-none" />
+          <div className="flex-none w-8 h-12 rounded overflow-hidden border border-zinc-800">
+            <img src="/book1-cover.jpg" alt="cover" className="w-full h-full object-cover" />
+          </div>
           <div className="min-w-0">
             <div className="text-[10px] text-zinc-700 uppercase tracking-widest">Chapter {chapter.chapterNum}</div>
             <div className="text-sm font-black text-white truncate">{chapter.title}</div>
@@ -255,20 +293,11 @@ export default function ChapterPage() {
         {/* Chapter text */}
         <main className="flex-1 overflow-y-auto px-10 py-8 max-w-3xl">
           {chapter.acts.map(act => (
-            <div
+            <ActSection
               key={act.number}
-              ref={el => { actRefs.current[act.number] = el }}
-              className="mb-12"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{act.name}</div>
-                <div className="flex-1 h-px bg-zinc-900" />
-                <div className="text-[9px] text-zinc-700">{act.wordCount.toLocaleString()} words</div>
-              </div>
-              <div className="text-sm text-zinc-400 leading-relaxed whitespace-pre-wrap font-serif">
-                {act.content}
-              </div>
-            </div>
+              act={act}
+              refCallback={(el: HTMLDivElement | null) => { actRefs.current[act.number] = el }}
+            />
           ))}
         </main>
 

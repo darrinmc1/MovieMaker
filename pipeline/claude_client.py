@@ -1,22 +1,44 @@
 """
-VBook Pipeline — Gemini API wrapper (using new google.genai SDK)
+VBook Pipeline — Gemini API wrapper (direct HTTP, no SDK)
+Avoids google-genai SDK compatibility issues with Python 3.14
 """
 
 import json
 import re
+import urllib.request
+import urllib.error
 
-from google import genai
-from google.genai import types
 import config
 
-_client = None
 
+def _call_gemini_raw(prompt: str, max_tokens: int = 3000, temperature: float = 0.8) -> str:
+    """Make a direct HTTP call to the Gemini API."""
+    model = getattr(config, 'GEMINI_MODEL', 'gemini-2.5-flash')
+    api_key = config.GEMINI_API_KEY
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
-def get_client():
-    global _client
-    if _client is None:
-        _client = genai.Client(api_key=config.GEMINI_API_KEY)
-    return _client
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "temperature": temperature,
+            "maxOutputTokens": max_tokens,
+        }
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8")
+        raise RuntimeError(f"Gemini API error {e.code}: {body}") from e
 
 
 def call_claude(system: str, user: str, max_tokens: int = 3000) -> str:
@@ -24,17 +46,8 @@ def call_claude(system: str, user: str, max_tokens: int = 3000) -> str:
     Call Gemini and return the text response.
     Named call_claude so the rest of the pipeline doesn't need to change.
     """
-    client = get_client()
     full_prompt = f"{system}\n\n{user}"
-    response = client.models.generate_content(
-        model=config.GEMINI_MODEL,
-        contents=full_prompt,
-        config=types.GenerateContentConfig(
-            max_output_tokens=max_tokens,
-            temperature=0.8,
-        ),
-    )
-    return response.text.strip()
+    return _call_gemini_raw(full_prompt, max_tokens=max_tokens, temperature=0.8)
 
 
 def call_claude_json(system: str, user: str, max_tokens: int = 2000) -> dict | list:
