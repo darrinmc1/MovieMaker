@@ -1,0 +1,82 @@
+======================================================================
+  THE CONCORD OF NINE — BOOK 1 — SCENE REPORT
+  Generated: 2026-03-01 17:30
+  Total scenes: 8
+======================================================================
+
+
+────────────────────────────────────────────────────────────
+  CHAPTER 1
+────────────────────────────────────────────────────────────
+
+Scene 1 []: Thornwick's Ashy Silence
+  Setting:    Thornwick village, dawn, post-dragon attack devastation.
+  Mood:       Eerie desolation, quiet dread, mystery.
+  Characters: Caelin
+  Key Visual: Melted, glossy architecture and ash-choked streets, Caelin as a lone figure.
+
+  PROMPT: A lone figure, Caelin, rides his horse through the devastated village of
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s01_Thornwick's_Ashy_Silence.png
+
+Scene 2 []: Softened Beam, Awakened Power
+  Setting:    Collapsed cottage in Thornwick, interior, still glowing with residual heat.
+  Mood:       Tense, miraculous, revelation.
+  Characters: Caelin, Mira
+  Key Visual: Caelin's hand on the glowing, transforming beam, the wood turning glassy and viscous.
+
+  PROMPT: A close-up shot captures Caelin kneeling amidst the charred rubble of
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s02_Softened_Beam,_Awakened_Power.png
+
+Scene 3 []: Mira's Whispered Prophecy
+  Setting:    Thornwick village square, dawn, smoke-filled air.
+  Mood:       Somber, revelatory, foreboding.
+  Characters: Caelin, Mira, Elder Gareth
+  Key Visual: Mira's small, earnest face looking up at Caelin, her hand clutching his coat.
+
+  PROMPT: A somber, foreboding dawn in Thornwick village square. Thick,
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s03_Mira's_Whispered_Prophecy.png
+
+Scene 4 []: Obsidian Crater, Dying Dragon
+  Setting:    Fields beyond Thornwick, obsidian crater, morning.
+  Mood:       Awe, desolation, momentous discovery.
+  Characters: Caelin, Vharisax (in the distance)
+  Key Visual: The vast, dark obsidian crater with crystalline spires, and the immense dragon within.
+
+  PROMPT: A wide, slightly high-angle shot captures Caelin, a lean
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s04_Obsidian_Crater,_Dying_Dragon.png
+
+Scene 5 []: The Last Guardian's Plea
+  Setting:    Inside the obsidian crater, close to Vharisax.
+  Mood:       Solemn, urgent, fated.
+  Characters: Caelin, Vharisax
+  Key Visual: The immense, ancient gold eye of Vharisax, filled with purpose and regret, focused on Caelin.
+
+  PROMPT: A solemn, urgent scene unfolds within an obsidian crater. The Last Guardian,
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s05_The_Last_Guardian's_Plea.png
+
+Scene 6 []: Choice of Destiny
+  Setting:    Inside the obsidian crater.
+  Mood:       Tense, momentous, fated decision.
+  Characters: Caelin, Vharisax (claw only)
+  Key Visual: The glowing obsidian hex-plate nestled in Vharisax's ancient talons, Caelin's hand hovering above it.
+
+  PROMPT: A momentous close-up inside an obsidian crater: Vharis
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s06_Choice_of_Destiny.png
+
+Scene 7 []: The Dragon's Mark
+  Setting:    Inside the obsidian crater.
+  Mood:       Intense pain, wonder, transformation.
+  Characters: Caelin
+  Key Visual: Close-up on Caelin's forearm, the glowing hex-plate and spreading filaments as living tattoos.
+
+  PROMPT: An extreme close-up captures Caelin's right forearm, taut
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s07_The_Dragon's_Mark.png
+
+Scene 8 []: Ember's Inheritance
+  Setting:    Inside the obsidian crater, morning.
+  Mood:       Bittersweet, solemn, new beginning.
+  Characters: Caelin, Vharisax
+  Key Visual: Vharisax's massive, fissured form, glowing for a final moment, Caelin standing before her, marked and resolute.
+
+  PROMPT: Inside a vast, obsidian crater at dawn, a bittersweet and solemn
+  FILE:   C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\chapter_01\ch01_s08_Ember's_Inheritance.png

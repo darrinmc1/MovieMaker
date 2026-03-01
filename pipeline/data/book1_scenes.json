@@ -1,0 +1,169 @@
+[
+  {
+    "scene_id": "ch01_s01",
+    "chapter": 1,
+    "scene_number": 1,
+    "title": "Thornwick's Ashy Silence",
+    "description": "Caelin, in his charred-red duster, rides his horse through the ash-muffled, warped streets of Thornwick, where houses have slumped and stone has melted, signs of a unique, transformative destruction.",
+    "characters_present": [
+      "Caelin"
+    ],
+    "setting": "Thornwick village, dawn, post-dragon attack devastation.",
+    "mood": "Eerie desolation, quiet dread, mystery.",
+    "key_visual": "Melted, glossy architecture and ash-choked streets, Caelin as a lone figure.",
+    "lighting": "Pale, diffused morning light filtering through lingering smoke and ash.",
+    "camera_angle": "Wide shot, slightly low angle, showing the scope of the unique destruction and Caelin's isolated presence.",
+    "story_importance": "Establishes the immediate aftermath of the dragon attack and Caelin's arrival, setting the chapter's ominous tone.",
+    "movie_notes": "Slow pan across the eerie landscape, Caelin's horse hooves making soft, muffled sounds in the ash.",
+    "image_prompt": "A lone figure, Caelin, rides his horse through the devastated village of",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s01_Thornwick's_Ashy_Silence.png",
+    "generated_at": "2026-03-01T07:30:03.905949+00:00"
+  },
+  {
+    "scene_id": "ch01_s02",
+    "chapter": 1,
+    "scene_number": 2,
+    "title": "Softened Beam, Awakened Power",
+    "description": "Caelin kneels amidst the rubble of a collapsed cottage, his hand pressed against a scorching roof beam that has softened into a translucent, viscous state, freeing a terrified, soot-streaked Mira.",
+    "characters_present": [
+      "Caelin",
+      "Mira"
+    ],
+    "setting": "Collapsed cottage in Thornwick, interior, still glowing with residual heat.",
+    "mood": "Tense, miraculous, revelation.",
+    "key_visual": "Caelin's hand on the glowing, transforming beam, the wood turning glassy and viscous.",
+    "lighting": "Internal glow from the heated timber, contrasting with the smoky exterior light.",
+    "camera_angle": "Close-up on Caelin's hand and the beam, with Mira's wide, fearful eyes visible in the background.",
+    "story_importance": "Reveals Caelin's unique magical ability and its transformative nature, marking him as 'ember-born' and differentiating him from typical fire-wielders.",
+    "movie_notes": "Sound of sizzling and a low hum as the wood transforms, Mira's sharp intake of breath.",
+    "image_prompt": "A close-up shot captures Caelin kneeling amidst the charred rubble of",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s02_Softened_Beam,_Awakened_Power.png",
+    "generated_at": "2026-03-01T07:30:07.684759+00:00"
+  },
+  {
+    "scene_id": "ch01_s03",
+    "chapter": 1,
+    "scene_number": 3,
+    "title": "Mira's Whispered Prophecy",
+    "description": "Mira, a small child, curls trembling in Caelin's charred-red duster coat in the smoky square, whispering the ancient Draconic rhyme to Caelin while Elder Gareth, with his singed beard, listens grimly nearby.",
+    "characters_present": [
+      "Caelin",
+      "Mira",
+      "Elder Gareth"
+    ],
+    "setting": "Thornwick village square, dawn, smoke-filled air.",
+    "mood": "Somber, revelatory, foreboding.",
+    "key_visual": "Mira's small, earnest face looking up at Caelin, her hand clutching his coat.",
+    "lighting": "Dim, diffused light, smoke partially obscuring the background.",
+    "camera_angle": "Mid-shot, focusing on the intimate interaction between Caelin and Mira, with Gareth's concerned expression visible.",
+    "story_importance": "Reveals the critical prophecy/rhyme that will guide Caelin's quest and introduces the dragon's true purpose as a methodical searcher.",
+    "movie_notes": "Mira's voice hushed and earnest, the rhyme echoing slightly, subtle wind sounds.",
+    "image_prompt": "A somber, foreboding dawn in Thornwick village square. Thick,",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s03_Mira's_Whispered_Prophecy.png",
+    "generated_at": "2026-03-01T07:30:11.618098+00:00"
+  },
+  {
+    "scene_id": "ch01_s04",
+    "chapter": 1,
+    "scene_number": 4,
+    "title": "Obsidian Crater, Dying Dragon",
+    "description": "Caelin stands at the rim of a massive, black obsidian crater, steam rising from its crystalline spires, gazing down at the gargantuan, ash-crimson dragon Vharisax, dying at its center, her flanks glowing like forge embers.",
+    "characters_present": [
+      "Caelin",
+      "Vharisax (in the distance)"
+    ],
+    "setting": "Fields beyond Thornwick, obsidian crater, morning.",
+    "mood": "Awe, desolation, momentous discovery.",
+    "key_visual": "The vast, dark obsidian crater with crystalline spires, and the immense dragon within.",
+    "lighting": "Sharp morning light reflecting off the glassy obsidian, creating dark rainbows.",
+    "camera_angle": "Wide, slightly high-angle shot looking down into the crater, Caelin a smaller figure at the rim.",
+    "story_importance": "Visually confirms the scale of the dragon's power and its current predicament, and the unique landscape created by its magic.",
+    "movie_notes": "A low, resonant hum from the obsidian, faint steam hissing, Caelin's duster coat gently flapping in the breeze.",
+    "image_prompt": "A wide, slightly high-angle shot captures Caelin, a lean",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s04_Obsidian_Crater,_Dying_Dragon.png",
+    "generated_at": "2026-03-01T07:30:16.591504+00:00"
+  },
+  {
+    "scene_id": "ch01_s05",
+    "chapter": 1,
+    "scene_number": 5,
+    "title": "The Last Guardian's Plea",
+    "description": "Caelin kneels respectfully before the ancient, dying dragon Vharisax within the obsidian crater, her vast, old gold eye fixed intently on him as she explains her desperate search and the Compact of the Nine.",
+    "characters_present": [
+      "Caelin",
+      "Vharisax"
+    ],
+    "setting": "Inside the obsidian crater, close to Vharisax.",
+    "mood": "Solemn, urgent, fated.",
+    "key_visual": "The immense, ancient gold eye of Vharisax, filled with purpose and regret, focused on Caelin.",
+    "lighting": "Warm, internal glow from Vharisax's fissured flanks, contrasting with the cool light reflecting off the obsidian.",
+    "camera_angle": "Mid-shot, slightly low angle from Caelin's perspective, emphasizing Vharisax's immense size and ancient wisdom.",
+    "story_importance": "Vharisax explains her dying mission, the existence of the Nine, and the threat of the Tenth, revealing Caelin's fated role as the ember-born.",
+    "movie_notes": "Vharisax's voice as a direct mental impression, Caelin's shallow breathing, audible rasp from the dragon.",
+    "image_prompt": "A solemn, urgent scene unfolds within an obsidian crater. The Last Guardian,",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s05_The_Last_Guardian's_Plea.png",
+    "generated_at": "2026-03-01T07:30:20.695134+00:00"
+  },
+  {
+    "scene_id": "ch01_s06",
+    "chapter": 1,
+    "scene_number": 6,
+    "title": "Choice of Destiny",
+    "description": "Vharisax's massive, trembling foreclaw lifts, revealing a small, hexagonal plate of glowing obsidian-red, pulsing with ember-motes, offered to Caelin who hesitates, his hand hovering above it.",
+    "characters_present": [
+      "Caelin",
+      "Vharisax (claw only)"
+    ],
+    "setting": "Inside the obsidian crater.",
+    "mood": "Tense, momentous, fated decision.",
+    "key_visual": "The glowing obsidian hex-plate nestled in Vharisax's ancient talons, Caelin's hand hovering above it.",
+    "lighting": "Intense, internal glow from the hex-plate, casting warm light on Caelin's hand and the dragon's claw.",
+    "camera_angle": "Close-up on the hex-plate and Caelin's hand, framed by the dragon's claw.",
+    "story_importance": "The physical manifestation of the burden and power Caelin must accept, a clear turning point in his life.",
+    "movie_notes": "A low, resonant hum from the plate, Caelin's heavy breathing, the faint tremor of Vharisax's claw.",
+    "image_prompt": "A momentous close-up inside an obsidian crater: Vharis",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s06_Choice_of_Destiny.png",
+    "generated_at": "2026-03-01T07:30:24.607831+00:00"
+  },
+  {
+    "scene_id": "ch01_s07",
+    "chapter": 1,
+    "scene_number": 7,
+    "title": "The Dragon's Mark",
+    "description": "Caelin gasps in pain and wonder as the obsidian hex-plate seamlessly embeds itself into his right forearm, fine black filaments spreading like intricate root systems under his skin, pulsing with internal ember-motes.",
+    "characters_present": [
+      "Caelin"
+    ],
+    "setting": "Inside the obsidian crater.",
+    "mood": "Intense pain, wonder, transformation.",
+    "key_visual": "Close-up on Caelin's forearm, the glowing hex-plate and spreading filaments as living tattoos.",
+    "lighting": "Intense internal glow from the hex-plate and filaments, illuminating Caelin's skin.",
+    "camera_angle": "Extreme close-up on Caelin's forearm, capturing the detail of the seamless transformation and spreading filaments.",
+    "story_importance": "Caelin accepts his fate, becoming visibly marked as the 'ember-born' and gaining the first tool and connection of his quest.",
+    "movie_notes": "A sharp, searing sound, Caelin's stifled cry, the glow intensifying and receding to a steady ember.",
+    "image_prompt": "An extreme close-up captures Caelin's right forearm, taut",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s07_The_Dragon's_Mark.png",
+    "generated_at": "2026-03-01T07:30:28.523059+00:00"
+  },
+  {
+    "scene_id": "ch01_s08",
+    "chapter": 1,
+    "scene_number": 8,
+    "title": "Ember's Inheritance",
+    "description": "Caelin, his newly marked forearm glowing faintly, watches as the vast, ash-crimson body of Vharisax dims, then brightens with a final, magnificent internal light before her ancient life fades completely.",
+    "characters_present": [
+      "Caelin",
+      "Vharisax"
+    ],
+    "setting": "Inside the obsidian crater, morning.",
+    "mood": "Bittersweet, solemn, new beginning.",
+    "key_visual": "Vharisax's massive, fissured form, glowing for a final moment, Caelin standing before her, marked and resolute.",
+    "lighting": "The internal glow of Vharisax's body, then fading into the ambient morning light, with Caelin's forearm still faintly luminous.",
+    "camera_angle": "Mid-shot from a slightly high angle, showing Caelin's new mark and the full length of the dying dragon.",
+    "story_importance": "The completion of Vharisax's mission, the passing of the torch, and the definitive start of Caelin's epic journey as the new guardian.",
+    "movie_notes": "A final, fading rasp from Vharisax, the sound of steam dissipating, Caelin's determined expression as he looks towards the horizon.",
+    "image_prompt": "Inside a vast, obsidian crater at dawn, a bittersweet and solemn",
+    "local_path": "C:\\Users\\Client\\Desktop\\MovieMaker\\pipeline\\data\\images\\chapter_01\\ch01_s08_Ember's_Inheritance.png",
+    "generated_at": "2026-03-01T07:30:32.249028+00:00"
+  }
+]
