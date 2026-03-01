@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Concord of Nine — Community Vote</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fire: #E87820;
+    --fire-dark: #9B4E0A;
+    --fire-glow: rgba(232, 120, 32, 0.18);
+    --void: #08080f;
+    --deep: #0d0d1a;
+    --panel: #121224;
+    --border: rgba(232, 120, 32, 0.18);
+    --border-bright: rgba(232, 120, 32, 0.55);
+    --text: #ede5d8;
+    --muted: #6a6285;
+    --green: #38a065;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--void);
+    color: var(--text);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.65;
+    min-height: 100vh;
+  }
+
+  /* Atmospheric layers */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(232,120,32,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 15% 90%, rgba(60,20,100,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 85% 90%, rgba(60,20,100,0.07) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Grain overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+  }
+
+  /* ── Hero ─────────────────────────────────────────────────────────── */
+  .hero {
+    text-align: center;
+    padding: 64px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 52px;
+  }
+
+  .series-label {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--fire);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    opacity: 0.85;
+  }
+
+  .hero-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+    background: linear-gradient(160deg, #fff5e8 0%, var(--fire) 60%, #ff9040 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+
+  .hero-sub {
+    font-family: 'Crimson Pro', serif;
+    font-size: 19px;
+    color: var(--muted);
+    font-style: italic;
+    letter-spacing: 0.03em;
+    margin-bottom: 28px;
+  }
+
+  .vote-intro {
+    font-size: 15px;
+    color: #a090b0;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  /* ── Chapter Badge ──────────────────────────────────────────────── */
+  .chapter-badge {
+    display: inline-block;
+    background: var(--panel);
+    border: 1px solid var(--border-bright);
+    border-radius: 4px;
+    padding: 6px 20px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--fire);
+    margin-bottom: 32px;
+  }
+
+  /* ── Timer ──────────────────────────────────────────────────────── */
+  .vote-timer {
+    background: rgba(232,120,32,0.07);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 20px;
+    margin-bottom: 40px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .timer-value {
+    font-family: 'Cinzel', serif;
+    color: var(--fire);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  /* ── Vote Cards ─────────────────────────────────────────────────── */
+  .vote-section-label {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+  }
+
+  .options-grid {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 40px;
+  }
+
+  .option-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px 28px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .option-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--fire-glow);
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+
+  .option-card:hover { border-color: var(--border-bright); transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+  .option-card:hover::before { opacity: 1; }
+
+  .option-card.selected {
+    border-color: var(--fire);
+    box-shadow: 0 0 0 1px var(--fire), 0 12px 40px rgba(232,120,32,0.12);
+  }
+
+  .option-card.selected::before { opacity: 1; }
+
+  .option-card.disabled { opacity: 0.6; cursor: default; transform: none !important; }
+
+  .option-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .option-letter {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--border-bright);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--fire);
+    flex-shrink: 0;
+    transition: all 0.2s;
+    background: rgba(232,120,32,0.05);
+  }
+
+  .option-card.selected .option-letter {
+    background: var(--fire);
+    color: #fff;
+    border-color: var(--fire);
+  }
+
+  .option-title {
+    font-family: 'Cinzel', serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    line-height: 1.3;
+    padding-top: 6px;
+  }
+
+  .option-description {
+    font-size: 16px;
+    color: #c8b8a8;
+    line-height: 1.65;
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+
+  .option-consequence {
+    font-size: 13px;
+    color: var(--muted);
+    border-left: 2px solid var(--border-bright);
+    padding-left: 12px;
+    line-height: 1.5;
+  }
+
+  /* Results bar */
+  .result-bar {
+    margin-top: 14px;
+    display: none;
+  }
+
+  .result-bar.visible { display: block; }
+
+  .result-bar-bg {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .result-bar-fill {
+    height: 100%;
+    background: var(--fire);
+    border-radius: 2px;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .result-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+  }
+
+  /* Winner highlight */
+  .option-card.winner-card {
+    border-color: var(--green) !important;
+    box-shadow: 0 0 0 1px var(--green), 0 12px 40px rgba(56,160,101,0.1);
+  }
+
+  .option-card.winner-card::before {
+    background: rgba(56,160,101,0.06) !important;
+    opacity: 1 !important;
+  }
+
+  .option-card.winner-card .option-letter {
+    background: var(--green) !important;
+    border-color: var(--green) !important;
+    color: #fff !important;
+  }
+
+  .winner-badge {
+    display: inline-block;
+    background: var(--green);
+    color: #fff;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    padding: 2px 10px;
+    border-radius: 10px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  /* ── Submit Button ───────────────────────────────────────────────── */
+  .submit-area {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .submit-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    padding: 16px 48px;
+    background: transparent;
+    border: 1px solid var(--fire);
+    color: var(--fire);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .submit-btn:hover { background: var(--fire); color: #fff; box-shadow: 0 0 30px rgba(232,120,32,0.3); }
+  .submit-btn:disabled { opacity: 0.4; cursor: default; }
+  .submit-btn.voted { background: var(--green); border-color: var(--green); color: #fff; }
+
+  .submit-msg {
+    margin-top: 16px;
+    font-size: 14px;
+    color: var(--muted);
+    min-height: 22px;
+    font-style: italic;
+  }
+
+  /* ── Summary ────────────────────────────────────────────────────── */
+  .vote-summary {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .summary-stat { text-align: center; }
+  .summary-num { font-family: 'Cinzel', serif; font-size: 28px; font-weight: 700; color: var(--fire); }
+  .summary-label { font-size: 12px; color: var(--muted); letter-spacing: 0.08em; font-family: 'Cinzel', serif; }
+
+  /* ── Lore Teaser ────────────────────────────────────────────────── */
+  .lore-teaser {
+    border-top: 1px solid var(--border);
+    padding-top: 40px;
+    margin-bottom: 40px;
+  }
+
+  .lore-header {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 20px;
+  }
+
+  .lore-entry {
+    background: var(--panel);
+    border-left: 2px solid var(--border-bright);
+    padding: 12px 16px 12px 20px;
+    margin-bottom: 12px;
+    font-size: 15px;
+    color: #c8b8a8;
+    font-style: italic;
+    line-height: 1.65;
+  }
+
+  /* ── Footer ─────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  footer a { color: var(--fire); text-decoration: none; }
+
+  /* ── Loading state ───────────────────────────────────────────────── */
+  .loading {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-top-color: var(--fire);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Voted state ─────────────────────────────────────────────────── */
+  .voted-banner {
+    background: rgba(56,160,101,0.08);
+    border: 1px solid rgba(56,160,101,0.3);
+    border-radius: 6px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    text-align: center;
+    font-size: 15px;
+    color: var(--green);
+    display: none;
+  }
+
+  .voted-banner.visible { display: block; }
+
+  /* ── Responsive ──────────────────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .vote-summary { justify-content: center; }
+    .option-card { padding: 18px 20px; }
+    .hero { padding: 40px 0 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── Hero ────────────────────────────────────────────────────────── -->
+  <header class="hero">
+    <div class="series-label">The Concord of Nine · Community Vote</div>
+    <h1 class="hero-title">Shape the Story</h1>
+    <p class="hero-sub">Book 1: The Dragon's Last Breath</p>
+    <p class="vote-intro">
+      This is a living serial novel. Every chapter, the community decides which path the story takes.
+      Your vote directly shapes what the AI writes next.
+    </p>
+  </header>
+
+  <!-- ── Vote Content ──────────────────────────────────────────────── -->
+  <div id="voteContent">
+    <div class="loading">
+      <div class="loading-spinner"></div>
+      <div>Loading current vote...</div>
+    </div>
+  </div>
+
+  <!-- ── Lore Teaser ─────────────────────────────────────────────── -->
+  <div class="lore-teaser">
+    <div class="lore-header">From the World — Quick Lore</div>
+    <div class="lore-entry">"The scale stings when he lies. He'd long since stopped trying."</div>
+    <div class="lore-entry">"Nine dragons died so the Seal would hold. Something is pulling at the stitches."</div>
+    <div class="lore-entry">"Vex had survived Nightfall's Reach, the district raid, and three very angry clients. She was beginning to think she might survive this too."</div>
+    <div class="lore-entry">"Thornik's grandfather died chasing a legend. That made it Thornik's responsibility to prove it wasn't one."</div>
+  </div>
+
+  <!-- ── Footer ────────────────────────────────────────────────────── -->
+  <footer>
+    <p>The Concord of Nine is an AI-generated serial novel. New chapters release after each community vote closes.</p>
+    <p style="margin-top:8px;">Built with the VBook Pipeline · <a href="#">Learn how it works →</a></p>
+  </footer>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION — update these to match your setup
+// ══════════════════════════════════════════════════════════════════════════
+const CONFIG = {
+  // Option 1: Direct Google Sheets JSON endpoint (publish sheet to web)
+  // In Google Sheets: File > Share > Publish to web > Select "Votes" tab > JSON
+  // Paste the generated URL here:
+  sheetsJsonUrl: '',
+
+  // Option 2: Your own API endpoint (if you have a backend)
+  apiUrl: '',
+
+  // Option 3: Hardcode current vote options (simplest for testing)
+  // Set to null to fetch from above, or provide vote data directly:
+  manualVoteData: {
+    chapterNumber: 2,
+    chapterTitle: "Chapter 2: What the Crater Left Behind",
+    deadline: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+    status: 'open',
+    totalVotes: 247,
+    options: [
+      {
+        letter: 'A',
+        title: 'The Scale Pulls North',
+        description: 'Caelin\'s embedded scale begins pointing toward an abandoned temple three days north. Vex recognises the direction — she\'s been hired to rob that exact location twice. Both times she turned the job down. She\'s never said why.',
+        consequence: 'Introduces the first Relic of the Concord ahead of schedule. Vex\'s secret history with the temple becomes a story thread.',
+        votes: 98,
+      },
+      {
+        letter: 'B',
+        title: 'A Rider from Emberhall',
+        description: 'A royal messenger arrives in Thornwick bearing House Thorne colours. Caelin\'s exile has not gone unnoticed. Someone from his past wants to find him — and the message makes clear they know about the dragon bond.',
+        consequence: 'Brings Caelin\'s backstory forward. Creates immediate pressure to leave Thornwick before more riders arrive.',
+        votes: 113,
+      },
+      {
+        letter: 'C',
+        title: 'Thornik\'s Contraption Screams',
+        description: 'Every sensor Thornik built begins reacting simultaneously — just like they did three nights before Thornwick. Something nearby is radiating the same signature as Caelin\'s scale. Something buried. Something old.',
+        consequence: 'Moves Thornik to centre stage. Introduces the underground element that connects to Depthspire in Book 2.',
+        votes: 36,
+      },
+    ],
+  },
+};
+// ══════════════════════════════════════════════════════════════════════════
+
+const VOTE_STORAGE_KEY = 'vbook_vote_record';
+
+function getVoteRecord() {
+  try { return JSON.parse(localStorage.getItem(VOTE_STORAGE_KEY)) || {}; }
+  catch(e) { return {}; }
+}
+
+function saveVoteRecord(chapter, option) {
+  const record = getVoteRecord();
+  record[chapter] = { option, timestamp: new Date().toISOString() };
+  localStorage.setItem(VOTE_STORAGE_KEY, JSON.stringify(record));
+}
+
+function hasVoted(chapter) {
+  return !!getVoteRecord()[chapter];
+}
+
+function getMyVote(chapter) {
+  return getVoteRecord()[chapter]?.option;
+}
+
+// ── Fetch vote data ────────────────────────────────────────────────────────
+async function fetchVoteData() {
+  if (CONFIG.manualVoteData) return CONFIG.manualVoteData;
+
+  if (CONFIG.apiUrl) {
+    const r = await fetch(CONFIG.apiUrl);
+    return r.json();
+  }
+
+  if (CONFIG.sheetsJsonUrl) {
+    const r = await fetch(CONFIG.sheetsJsonUrl);
+    const data = await r.json();
+    // Parse Google Sheets JSON format
+    const rows = data.feed?.entry || [];
+    if (rows.length === 0) return null;
+    const latest = rows[rows.length - 1];
+    const cell = k => latest[`gsx$${k}`]?.$t || '';
+    const totalVotes = parseInt(cell('votesa')) + parseInt(cell('votesb')) + parseInt(cell('votesc')) || 0;
+    return {
+      chapterNumber: parseInt(cell('chapternumber')),
+      deadline: cell('deadline'),
+      status: cell('status'),
+      totalVotes,
+      options: [
+        { letter: 'A', title: cell('optiona_title'), description: cell('optiona_desc'), consequence: cell('optiona_consequence'), votes: parseInt(cell('votesa')) || 0 },
+        { letter: 'B', title: cell('optionb_title'), description: cell('optionb_desc'), consequence: cell('optionb_consequence'), votes: parseInt(cell('votesb')) || 0 },
+        { letter: 'C', title: cell('optionc_title'), description: cell('optionc_desc'), consequence: cell('optionc_consequence'), votes: parseInt(cell('votesc')) || 0 },
+      ],
+    };
+  }
+
+  return null;
+}
+
+// ── Render vote ────────────────────────────────────────────────────────────
+let selectedOption = null;
+let currentVoteData = null;
+
+function getTimeRemaining(deadline) {
+  const diff = new Date(deadline) - new Date();
+  if (diff <= 0) return 'Vote closed';
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  if (days > 0) return `${days}d ${hours}h remaining`;
+  if (hours > 0) return `${hours}h ${mins}m remaining`;
+  return `${mins}m remaining`;
+}
+
+function renderVote(data) {
+  currentVoteData = data;
+  const container = document.getElementById('voteContent');
+  const voted = hasVoted(data.chapterNumber);
+  const myVote = getMyVote(data.chapterNumber);
+  const isClosed = data.status === 'closed';
+  const showResults = voted || isClosed;
+  const total = data.totalVotes || data.options.reduce((s,o) => s + (o.votes||0), 0);
+  const winner = isClosed ? data.options.reduce((a,b) => (b.votes||0) > (a.votes||0) ? b : a) : null;
+
+  const timerText = data.deadline ? getTimeRemaining(data.deadline) : '';
+
+  const optionsHtml = data.options.map(opt => {
+    const pct = total > 0 ? Math.round((opt.votes||0) / total * 100) : 0;
+    const isSelected = selectedOption === opt.letter;
+    const isMyVote = myVote === opt.letter;
+    const isWinner = winner?.letter === opt.letter;
+
+    let cardClass = 'option-card';
+    if (isSelected && !voted) cardClass += ' selected';
+    if (isMyVote) cardClass += ' selected';
+    if (isWinner) cardClass += ' winner-card';
+    if (isClosed) cardClass += ' disabled';
+
+    return `
+      <div class="${cardClass}" data-option="${opt.letter}" onclick="selectOption('${opt.letter}', ${voted || isClosed})">
+        <div class="option-header">
+          <div class="option-letter">${opt.letter}</div>
+          <div>
+            <div class="option-title">
+              ${opt.title}
+              ${isWinner ? '<span class="winner-badge">WINNER</span>' : ''}
+              ${isMyVote && !isWinner ? '<span class="winner-badge" style="background:#5577aa">YOUR VOTE</span>' : ''}
+            </div>
+          </div>
+        </div>
+        <p class="option-description">${opt.description}</p>
+        <p class="option-consequence">${opt.consequence}</p>
+        <div class="result-bar ${showResults ? 'visible' : ''}">
+          <div class="result-bar-bg"><div class="result-bar-fill" style="width:${pct}%"></div></div>
+          <div class="result-label"><span>${opt.votes||0} votes</span><span>${pct}%</span></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="chapter-badge">CHAPTER ${data.chapterNumber} — CHOOSE THE PATH FORWARD</div>
+
+    ${voted ? `<div class="voted-banner visible">✓ You've voted for Option ${myVote}. Results will be revealed when voting closes.</div>` : ''}
+
+    ${timerText ? `
+      <div class="vote-timer">
+        Vote closes in <span class="timer-value" id="timerValue">${timerText}</span>
+      </div>
+    ` : ''}
+
+    <div class="vote-summary">
+      <div class="summary-stat">
+        <div class="summary-num">${total.toLocaleString()}</div>
+        <div class="summary-label">Total Votes</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-num">${data.options.length}</div>
+        <div class="summary-label">Options</div>
+      </div>
+      <div class="summary-stat">
+        <div class="summary-num">${timerText.split(' ')[0] || '—'}</div>
+        <div class="summary-label">${timerText.includes('d') ? 'Days Left' : timerText.includes('h') ? 'Hours Left' : 'Time Left'}</div>
+      </div>
+    </div>
+
+    <div class="vote-section-label">What happens in Chapter ${data.chapterNumber}?</div>
+
+    <div class="options-grid">
+      ${optionsHtml}
+    </div>
+
+    <div class="submit-area">
+      ${!voted && !isClosed ? `
+        <button class="submit-btn" id="submitBtn" disabled onclick="submitVote()">Cast Your Vote</button>
+        <div class="submit-msg" id="submitMsg">Select an option above to vote</div>
+      ` : isClosed ? `
+        <div class="submit-msg">This vote is closed. The community chose <strong>Option ${winner?.letter}</strong>.</div>
+      ` : `
+        <div class="submit-msg">Your vote has been recorded. Thank you for shaping the story.</div>
+      `}
+    </div>
+  `;
+
+  // Start timer
+  if (data.deadline && !isClosed) {
+    setInterval(() => {
+      const el = document.getElementById('timerValue');
+      if (el) el.textContent = getTimeRemaining(data.deadline);
+    }, 60000);
+  }
+}
+
+function selectOption(letter, disabled) {
+  if (disabled) return;
+  selectedOption = letter;
+
+  document.querySelectorAll('.option-card').forEach(card => {
+    card.classList.remove('selected');
+    if (card.dataset.option === letter) card.classList.add('selected');
+  });
+
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('submitMsg');
+  if (btn) { btn.disabled = false; btn.textContent = `Vote for Option ${letter}`; }
+  if (msg) msg.textContent = `Voting for: "${currentVoteData.options.find(o=>o.letter===letter)?.title}"`;
+}
+
+async function submitVote() {
+  if (!selectedOption || !currentVoteData) return;
+
+  const btn = document.getElementById('submitBtn');
+  const msg = document.getElementById('submitMsg');
+
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+  msg.textContent = '';
+
+  // ── Submit to backend ────────────────────────────────────────────────────
+  // If you have an n8n webhook endpoint, replace '' with its URL:
+  const WEBHOOK_URL = '';
+
+  if (WEBHOOK_URL) {
+    try {
+      await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chapter: currentVoteData.chapterNumber,
+          option: selectedOption,
+          timestamp: new Date().toISOString(),
+          userAgent: navigator.userAgent.slice(0, 100),
+        })
+      });
+    } catch(e) {
+      console.log('Vote submission error (still recording locally):', e);
+    }
+  }
+
+  // Always record locally
+  saveVoteRecord(currentVoteData.chapterNumber, selectedOption);
+
+  // Re-render with voted state
+  btn.classList.add('voted');
+  btn.textContent = `✓ Voted for Option ${selectedOption}`;
+
+  setTimeout(() => renderVote(currentVoteData), 500);
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    const data = await fetchVoteData();
+    if (!data) {
+      document.getElementById('voteContent').innerHTML = `
+        <div style="text-align:center;padding:60px 0;color:var(--muted);">
+          <p>No active vote at the moment.</p>
+          <p style="margin-top:8px;font-size:14px;">Check back after the next chapter is published.</p>
+        </div>
+      `;
+      return;
+    }
+    renderVote(data);
+  } catch(e) {
+    document.getElementById('voteContent').innerHTML = `
+      <div style="text-align:center;padding:60px 0;color:var(--muted);">
+        <p>Could not load vote data.</p>
+        <p style="margin-top:8px;font-size:14px;">Error: ${e.message}</p>
+      </div>
+    `;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

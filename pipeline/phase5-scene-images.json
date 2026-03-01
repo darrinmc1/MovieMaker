@@ -1,0 +1,321 @@
+{
+  "name": "VBook — Phase 5: Scene Extraction + Image Generation",
+  "nodes": [
+
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+
+    {
+      "parameters": {
+        "values": {
+          "number": [
+            { "name": "chapterNumber", "value": 1 },
+            { "name": "actNumber", "value": 0 }
+          ],
+          "string": [
+            { "name": "styleToken", "value": "2D animated film style, hand-drawn line art, vibrant colour palette, Studio Ghibli-inspired backgrounds, expressive character faces, cinematic composition, soft natural lighting" },
+            { "name": "imageSize", "value": "1792x1024" }
+          ],
+          "boolean": [
+            { "name": "processAllActs", "value": true }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "notes": "chapterNumber: which chapter to process. actNumber: 0 = all acts (processAllActs=true). styleToken: locked visual style. imageSize: 1792x1024 (landscape) or 1024x1024."
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Acts!A:H",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-acts",
+      "name": "Read Acts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Characters!A:H",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-characters",
+      "name": "Read Characters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 480],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Build list of acts to process ────────────────────────────────────────\nconst config = $('Set Config').first().json;\nconst actItems = $('Read Acts').all();\nconst charItems = $('Read Characters').all();\n\n// Build character lookup (name -> physical description)\nconst charLookup = {};\ncharItems.forEach(i => {\n  if (i.json['Name']) {\n    charLookup[i.json['Name']] = i.json['Physical Description'] || '';\n  }\n});\n\n// Filter approved acts for this chapter\nlet acts = actItems\n  .filter(i => {\n    const matchChapter = String(i.json['Chapter']) === String(config.chapterNumber);\n    const isApproved = i.json['Status'] === 'approved';\n    const actFilter = config.processAllActs || String(i.json['Act']) === String(config.actNumber);\n    return matchChapter && isApproved && actFilter;\n  })\n  .sort((a,b) => Number(a.json['Act']) - Number(b.json['Act']));\n\nif (acts.length === 0) {\n  throw new Error(`No approved acts found for chapter ${config.chapterNumber}`);\n}\n\nreturn acts.map(a => ({\n  json: {\n    chapterNumber: config.chapterNumber,\n    actNumber: Number(a.json['Act']),\n    actContent: a.json['Content'] || '',\n    styleToken: config.styleToken,\n    imageSize: config.imageSize,\n    charLookup: JSON.stringify(charLookup),\n  }\n}));"
+      },
+      "id": "prepare-acts",
+      "name": "Prepare Acts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 380]
+    },
+
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-acts",
+      "name": "Loop Acts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1100, 380]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "=model", "value": "claude-sonnet-4-20250514" },
+            { "name": "=max_tokens", "value": "2000" },
+            {
+              "name": "=system",
+              "value": "You are a visual storytelling assistant extracting key scenes from novel acts for illustration.\n\nYou must return ONLY valid JSON — an array of scene objects. No preamble, no explanation."
+            },
+            {
+              "name": "=messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Extract the 8-10 most visually important scenes from this act.\\n\\nEach scene must capture a distinct moment illustratable as a single image.\\nPrioritise: action moments, emotional beats, character reveals, location establishing shots.\\n\\n## Act Content\\n\" + $json.actContent + \"\\n\\n## Characters Reference\\n\" + $json.charLookup + \"\\n\\nReturn ONLY a JSON array:\\n[\\n  {\\n    \\\"scene_number\\\": <integer>,\\n    \\\"scene_description\\\": \\\"<what is happening in this moment, 1-2 sentences>\\\",\\n    \\\"characters_present\\\": [\\\"<name>\\\", ...],\\n    \\\"setting\\\": \\\"<specific location and time of day>\\\",\\n    \\\"mood\\\": \\\"<emotional tone: tense / melancholy / triumphant / etc.>\\\",\\n    \\\"action\\\": \\\"<the key physical action or pose happening>\\\",\\n    \\\"camera_angle\\\": \\\"<wide establishing / close-up / over-the-shoulder / dutch angle / etc.>\\\"\\n  },\\n  ...\\n]\" }]"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "claude-extract-scenes",
+      "name": "Claude — Extract Scenes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 380]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Parse scenes and build image prompts ─────────────────────────────────\nconst response = $('Claude — Extract Scenes').first().json;\nconst text = response.content?.[0]?.text || '';\nconst ctx = $('Loop Acts').first().json;\n\nlet scenes;\ntry {\n  const clean = text.replace(/```json|```/g,'').trim();\n  scenes = JSON.parse(clean);\n} catch(e) {\n  throw new Error('Failed to parse scenes JSON: ' + text.slice(0,300));\n}\n\nconst charLookup = JSON.parse(ctx.charLookup || '{}');\n\n// Build one item per scene with full image prompt\nreturn scenes.map(scene => {\n  // Build character visual descriptions for this scene\n  const charDescriptions = (scene.characters_present || [])\n    .map(name => {\n      const desc = charLookup[name] || '';\n      return desc ? `${name}: ${desc}` : name;\n    })\n    .join(' | ');\n\n  // Build full DALL-E prompt\n  const imagePrompt = [\n    ctx.styleToken + '.',\n    scene.scene_description + '.',\n    `Setting: ${scene.setting}.`,\n    `Mood: ${scene.mood}.`,\n    `${scene.action}.`,\n    `${scene.camera_angle} shot.`,\n    charDescriptions ? `Characters: ${charDescriptions}.` : ''\n  ].filter(Boolean).join(' ');\n\n  return {\n    json: {\n      chapterNumber: ctx.chapterNumber,\n      actNumber: ctx.actNumber,\n      sceneNumber: scene.scene_number,\n      sceneDescription: scene.scene_description,\n      characters: (scene.characters_present || []).join(', '),\n      setting: scene.setting,\n      mood: scene.mood,\n      imagePrompt,\n      imageSize: ctx.imageSize,\n      status: 'pending',\n    }\n  };\n});"
+      },
+      "id": "build-image-prompts",
+      "name": "Build Image Prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 380]
+    },
+
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-scenes",
+      "name": "Loop Scenes",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1760, 380]
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Images!A:J",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "autoMap"
+      },
+      "id": "save-prompt-to-sheets",
+      "name": "Save Prompt to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1980, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.OPENAI_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "=model", "value": "dall-e-3" },
+            { "name": "=prompt", "value": "={{ $json.imagePrompt.slice(0,3900) }}" },
+            { "name": "=size", "value": "={{ $json.imageSize || '1792x1024' }}" },
+            { "name": "=quality", "value": "standard" },
+            { "name": "=n", "value": 1 },
+            { "name": "=response_format", "value": "url" }
+          ]
+        }
+      },
+      "id": "dalle-generate-image",
+      "name": "DALL-E 3 — Generate Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 460],
+      "notes": "Requires OPENAI_API_KEY environment variable. DALL-E 3 prompts are capped at 4000 chars."
+    },
+
+    {
+      "parameters": {
+        "url": "={{ $('DALL-E 3 — Generate Image').first().json.data[0].url }}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "download-image",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 460],
+      "notes": "Downloads the generated image as binary data for Drive upload"
+    },
+
+    {
+      "parameters": {
+        "name": "=VBook/Images/Chapter_{{ $('Loop Scenes').first().json.chapterNumber }}/Act_{{ $('Loop Scenes').first().json.actNumber }}/Scene_{{ $('Loop Scenes').first().json.sceneNumber }}.png",
+        "driveId": { "value": "my_drive" },
+        "folderId": { "value": "={{ $env.GDRIVE_IMAGES_FOLDER_ID }}" },
+        "options": {}
+      },
+      "id": "upload-to-drive",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2420, 460],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Drive — VBook"
+        }
+      },
+      "notes": "Requires GDRIVE_IMAGES_FOLDER_ID env var pointing to your VBook/Images folder"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Build updated row for Images tab ─────────────────────────────────────\nconst scene = $('Loop Scenes').first().json;\nconst driveResponse = $('Upload to Google Drive').first().json;\nconst dalleResponse = $('DALL-E 3 — Generate Image').first().json;\n\nconst driveUrl = driveResponse.webViewLink || driveResponse.id || 'unknown';\nconst imageUrl = dalleResponse.data?.[0]?.url || '';\nconst revisedPrompt = dalleResponse.data?.[0]?.revised_prompt || '';\n\nreturn [{\n  json: {\n    chapterNumber: scene.chapterNumber,\n    actNumber: scene.actNumber,\n    sceneNumber: scene.sceneNumber,\n    sceneDescription: scene.sceneDescription,\n    characters: scene.characters,\n    setting: scene.setting,\n    mood: scene.mood,\n    imagePrompt: scene.imagePrompt,\n    revisedPrompt,\n    imageUrl,\n    drivePath: `VBook/Images/Chapter_${scene.chapterNumber}/Act_${scene.actNumber}/Scene_${scene.sceneNumber}.png`,\n    driveUrl,\n    status: 'generated',\n    generatedAt: new Date().toISOString(),\n  }\n}];"
+      },
+      "id": "format-image-record",
+      "name": "Format Image Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 460]
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Images!A:N",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "autoMap"
+      },
+      "id": "save-image-record",
+      "name": "Save Image Record to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2860, 460],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "seconds"
+      },
+      "id": "rate-limit-pause",
+      "name": "Rate Limit Pause (3s)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [3080, 460],
+      "notes": "DALL-E 3 rate limit: ~5 images/min on Tier 1. Increase pause if hitting limits."
+    }
+  ],
+
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Read Acts", "type": "main", "index": 0 }, { "node": "Read Characters", "type": "main", "index": 0 }]] },
+    "Read Acts": { "main": [[{ "node": "Prepare Acts", "type": "main", "index": 0 }]] },
+    "Read Characters": { "main": [[{ "node": "Prepare Acts", "type": "main", "index": 0 }]] },
+    "Prepare Acts": { "main": [[{ "node": "Loop Acts", "type": "main", "index": 0 }]] },
+    "Loop Acts": { "main": [[{ "node": "Claude — Extract Scenes", "type": "main", "index": 0 }]] },
+    "Claude — Extract Scenes": { "main": [[{ "node": "Build Image Prompts", "type": "main", "index": 0 }]] },
+    "Build Image Prompts": { "main": [[{ "node": "Loop Scenes", "type": "main", "index": 0 }]] },
+    "Loop Scenes": { "main": [[{ "node": "Save Prompt to Sheets", "type": "main", "index": 0 }], [{ "node": "DALL-E 3 — Generate Image", "type": "main", "index": 0 }]] },
+    "DALL-E 3 — Generate Image": { "main": [[{ "node": "Download Image", "type": "main", "index": 0 }]] },
+    "Download Image": { "main": [[{ "node": "Upload to Google Drive", "type": "main", "index": 0 }]] },
+    "Upload to Google Drive": { "main": [[{ "node": "Format Image Record", "type": "main", "index": 0 }]] },
+    "Format Image Record": { "main": [[{ "node": "Save Image Record to Sheets", "type": "main", "index": 0 }]] },
+    "Save Image Record to Sheets": { "main": [[{ "node": "Rate Limit Pause (3s)", "type": "main", "index": 0 }]] },
+    "Rate Limit Pause (3s)": { "main": [[{ "node": "Loop Scenes", "type": "main", "index": 0 }]] }
+  },
+
+  "settings": { "executionOrder": "v1" },
+  "tags": [],
+  "meta": { "instanceId": "vbook-pipeline" }
+}

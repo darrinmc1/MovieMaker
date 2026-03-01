@@ -1,0 +1,491 @@
+{
+  "name": "VBook Phase 3 — Review & Improvement Loop",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "chapterNum",    "value": 1,                          "type": "number" },
+            { "id": "2", "name": "targetScore",   "value": 9,                          "type": "number" },
+            { "id": "3", "name": "maxActRetries",  "value": 5,                          "type": "number" },
+            { "id": "4", "name": "maxChapRetries", "value": 3,                          "type": "number" },
+            { "id": "5", "name": "sheetId",       "value": "={{ $env.GOOGLE_SHEET_ID }}", "type": "expression" }
+          ]
+        }
+      },
+      "id": "config",
+      "name": "Set Run Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "documentId": { "__rl": true, "value": "={{ $json.sheetId }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Acts", "mode": "name" },
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "Chapter #",   "lookupValue": "={{ $json.chapterNum }}" },
+            { "lookupColumn": "Status",      "lookupValue": "draft" }
+          ]
+        }
+      },
+      "id": "load_draft_acts",
+      "name": "Load Draft Acts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [640, 300],
+      "parameters": { "operation": "read" }
+    },
+    {
+      "parameters": {
+        "content": "=## Loop over each draft act\nFor each act: run reviewer → check score → improve if needed → loop up to maxActRetries times",
+        "height": 60
+      },
+      "id": "note_act_loop",
+      "name": "Act Loop Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [840, 160]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop_acts",
+      "name": "Loop Acts",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "1", "name": "actContent",    "value": "={{ $json['Content'] }}",     "type": "expression" },
+            { "id": "2", "name": "actNum",        "value": "={{ $json['Act #'] }}",        "type": "expression" },
+            { "id": "3", "name": "chapterNum",    "value": "={{ $json['Chapter #'] }}",    "type": "expression" },
+            { "id": "4", "name": "iteration",     "value": 0,                              "type": "number" },
+            { "id": "5", "name": "rowIndex",      "value": "={{ $json['row_number'] }}",   "type": "expression" }
+          ]
+        }
+      },
+      "id": "prep_act",
+      "name": "Prep Act Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a senior fiction editor. Score the act and return ONLY valid JSON — no prose, no markdown fences.\",\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Score this act 1-10 on: narrative quality, pacing, character consistency, dialogue, and engagement.\\n\\nReturn ONLY this JSON structure:\\n{\\n  \\\"score\\\": <1-10>,\\n  \\\"scoreRationale\\\": \\\"<one sentence>\\\",\\n  \\\"weaknesses\\\": [\\\"<specific issue>\\\"],\\n  \\\"suggestions\\\": [\\\"<exact surgical improvement>\\\"]\\n}\\n\\nACT CONTENT:\\n{{ $json.actContent }}\"\n  }]\n}"
+      },
+      "id": "reviewer",
+      "name": "Act Reviewer (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "anthropic_auth", "name": "Anthropic API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Claude's JSON response\nconst responseText = $input.first().json.content[0].text;\n\n// Strip any accidental markdown fences\nconst clean = responseText.replace(/^```json\\s*/m, '').replace(/```\\s*$/m, '').trim();\n\nlet review;\ntry {\n  review = JSON.parse(clean);\n} catch (e) {\n  // If JSON parse fails, return a conservative score to trigger improvement\n  review = {\n    score: 5,\n    scoreRationale: 'Failed to parse review JSON — treating as needs improvement',\n    weaknesses: ['Review parsing failed'],\n    suggestions: ['Re-review this act manually']\n  };\n}\n\n// Carry forward context from previous node\nconst prev = $('Prep Act Context').first().json;\n\nreturn [{\n  json: {\n    ...prev,\n    reviewScore:      review.score,\n    reviewRationale:  review.scoreRationale,\n    weaknesses:       (review.weaknesses || []).join(' | '),\n    suggestions:      (review.suggestions || []).join(' | '),\n    rawReview:        review,\n  }\n}];"
+      },
+      "id": "parse_review",
+      "name": "Parse Review JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.reviewScore }}",
+              "rightValue": "={{ $('Set Run Config').first().json.targetScore }}",
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      },
+      "id": "score_gate",
+      "name": "Score Gate (≥9?)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1640, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.iteration }}",
+              "rightValue": "={{ $('Set Run Config').first().json.maxActRetries }}",
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      },
+      "id": "retry_cap",
+      "name": "Retry Cap Reached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1840, 420]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 4096,\n  \"system\": \"You are a fiction editor making surgical improvements to a draft act. Preserve 90% of the original text. Do not change plot events, character names, or the act's structure. Make only the minimal changes needed to address the listed weaknesses.\",\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Improve this act by addressing ONLY these specific issues:\\n{{ $json.suggestions }}\\n\\nRULES:\\n- Preserve at least 90% of the original text verbatim\\n- Do NOT change what happens in the story\\n- Do NOT add new characters or plot events\\n- Return ONLY the improved act text, nothing else\\n\\nORIGINAL ACT:\\n{{ $json.actContent }}\"\n  }]\n}"
+      },
+      "id": "improver",
+      "name": "Act Improver (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2040, 420],
+      "credentials": {
+        "httpHeaderAuth": { "id": "anthropic_auth", "name": "Anthropic API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Update actContent with the improved text and increment iteration counter\nconst improved = $input.first().json.content[0].text.trim();\nconst prev = $('Parse Review JSON').first().json;\n\nreturn [{\n  json: {\n    ...prev,\n    actContent: improved,\n    iteration: (prev.iteration || 0) + 1,\n  }\n}];"
+      },
+      "id": "update_act",
+      "name": "Update Act Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2240, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determine final status flag\nconst data = $input.first().json;\nconst capReached = data.iteration >= $('Set Run Config').first().json.maxActRetries;\n\nreturn [{\n  json: {\n    ...data,\n    finalStatus: capReached ? 'needs_human_review' : 'approved',\n    finalScore: data.reviewScore,\n    finalIteration: data.iteration,\n  }\n}];"
+      },
+      "id": "finalize_act",
+      "name": "Finalize Act Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1840, 300]
+    },
+    {
+      "parameters": {
+        "documentId": { "__rl": true, "value": "={{ $('Set Run Config').first().json.sheetId }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Acts", "mode": "name" },
+        "operation": "update",
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "row_number", "lookupValue": "={{ $json.rowIndex }}" }
+          ]
+        },
+        "fieldsUi": {
+          "values": [
+            { "column": "Content",           "fieldValue": "={{ $json.actContent }}" },
+            { "column": "Score",             "fieldValue": "={{ $json.finalScore }}" },
+            { "column": "Iteration Count",   "fieldValue": "={{ $json.finalIteration }}" },
+            { "column": "Status",            "fieldValue": "={{ $json.finalStatus }}" },
+            { "column": "Score Rationale",   "fieldValue": "={{ $json.reviewRationale }}" },
+            { "column": "Last Updated",      "fieldValue": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "save_act",
+      "name": "Save Approved Act to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2040, 300]
+    },
+    {
+      "parameters": {
+        "content": "=## Chapter-level review\nAfter all 5 acts pass, concatenate and review the full chapter for continuity + arc",
+        "height": 60
+      },
+      "id": "note_chap_review",
+      "name": "Chapter Review Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [2240, 160]
+    },
+    {
+      "parameters": {
+        "documentId": { "__rl": true, "value": "={{ $('Set Run Config').first().json.sheetId }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Acts", "mode": "name" },
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "Chapter #", "lookupValue": "={{ $('Set Run Config').first().json.chapterNum }}" }
+          ]
+        }
+      },
+      "id": "load_all_acts",
+      "name": "Load All Approved Acts",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [2240, 300],
+      "parameters": { "operation": "read" }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Concatenate all acts into one chapter text\nconst acts = $input.all().map(item => item.json);\nacts.sort((a, b) => Number(a['Act #']) - Number(b['Act #']));\n\nconst fullText = acts.map(a => `=== Act ${a['Act #']} ===\\n${a['Content']}`).join('\\n\\n');\n\nreturn [{\n  json: {\n    chapterNum: $('Set Run Config').first().json.chapterNum,\n    fullChapterText: fullText,\n    chapIteration: 0,\n  }\n}];"
+      },
+      "id": "concat_acts",
+      "name": "Concatenate Acts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1024,\n  \"system\": \"You are a senior fiction editor reviewing a complete chapter. Return ONLY valid JSON.\",\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Review this complete chapter for:\\n1. Continuity across acts (does each act flow into the next?)\\n2. Chapter arc (does the chapter have a clear beginning, middle, end?)\\n3. Pacing (are any acts too slow or too rushed?)\\n4. Cliffhanger / chapter ending (does it leave the reader wanting more?)\\n5. Overall narrative quality\\n\\nReturn ONLY this JSON structure:\\n{\\n  \\\"score\\\": <1-10>,\\n  \\\"scoreRationale\\\": \\\"<one sentence>\\\",\\n  \\\"continuityIssues\\\": [\\\"<specific issue>\\\"],\\n  \\\"pacingIssues\\\": [\\\"<specific issue>\\\"],\\n  \\\"strengths\\\": [\\\"<what works well>\\\"],\\n  \\\"suggestions\\\": [\\\"<exact surgical fix>\\\"]\\n}\\n\\nCHAPTER:\\n{{ $json.fullChapterText.slice(0, 25000) }}\"\n  }]\n}"
+      },
+      "id": "chap_reviewer",
+      "name": "Chapter Reviewer (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2640, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "anthropic_auth", "name": "Anthropic API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const responseText = $input.first().json.content[0].text;\nconst clean = responseText.replace(/^```json\\s*/m, '').replace(/```\\s*$/m, '').trim();\n\nlet review;\ntry {\n  review = JSON.parse(clean);\n} catch (e) {\n  review = { score: 5, scoreRationale: 'Parse failed', suggestions: [], continuityIssues: [], pacingIssues: [], strengths: [] };\n}\n\nconst prev = $('Concatenate Acts').first().json;\n\nreturn [{\n  json: {\n    ...prev,\n    chapScore: review.score,\n    chapRationale: review.scoreRationale,\n    chapSuggestions: (review.suggestions || []).join(' | '),\n    chapContinuityIssues: (review.continuityIssues || []).join(' | '),\n    chapStrengths: (review.strengths || []).join(' | '),\n    rawChapReview: review,\n  }\n}];"
+      },
+      "id": "parse_chap_review",
+      "name": "Parse Chapter Review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2840, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.chapScore }}",
+              "rightValue": "={{ $('Set Run Config').first().json.targetScore }}",
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      },
+      "id": "chap_score_gate",
+      "name": "Chapter Score Gate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3040, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "leftValue": "={{ $json.chapIteration }}",
+              "rightValue": "={{ $('Set Run Config').first().json.maxChapRetries }}",
+              "operator": { "type": "number", "operation": "gte" }
+            }
+          ]
+        }
+      },
+      "id": "chap_retry_cap",
+      "name": "Chapter Retry Cap?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3240, 420]
+    },
+    {
+      "parameters": {
+        "url": "https://api.anthropic.com/v1/messages",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 8192,\n  \"system\": \"You are a fiction editor making surgical improvements to a chapter. Preserve 90% of the original text. Address only the specified issues.\",\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Improve this chapter by addressing ONLY these issues:\\n{{ $json.chapSuggestions }}\\n\\nRULES:\\n- Preserve at least 90% of the original text\\n- Do NOT change plot events or add new content\\n- Return ONLY the improved chapter text\\n\\nCHAPTER:\\n{{ $json.fullChapterText }}\"\n  }]\n}"
+      },
+      "id": "chap_improver",
+      "name": "Chapter Improver (Claude)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3440, 420],
+      "credentials": {
+        "httpHeaderAuth": { "id": "anthropic_auth", "name": "Anthropic API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const improved = $input.first().json.content[0].text.trim();\nconst prev = $('Parse Chapter Review').first().json;\n\nreturn [{\n  json: {\n    ...prev,\n    fullChapterText: improved,\n    chapIteration: (prev.chapIteration || 0) + 1,\n  }\n}];"
+      },
+      "id": "update_chap",
+      "name": "Update Chapter Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3640, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst capReached = data.chapIteration >= $('Set Run Config').first().json.maxChapRetries;\n\nreturn [{\n  json: {\n    ...data,\n    chapFinalStatus: capReached ? 'needs_human_review' : 'approved',\n  }\n}];"
+      },
+      "id": "finalize_chap",
+      "name": "Finalize Chapter Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3240, 300]
+    },
+    {
+      "parameters": {
+        "documentId": { "__rl": true, "value": "={{ $('Set Run Config').first().json.sheetId }}", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Chapters", "mode": "name" },
+        "operation": "append",
+        "fieldsUi": {
+          "values": [
+            { "column": "Chapter #",          "fieldValue": "={{ $json.chapterNum }}" },
+            { "column": "Combined Text",      "fieldValue": "={{ $json.fullChapterText }}" },
+            { "column": "Score",              "fieldValue": "={{ $json.chapScore }}" },
+            { "column": "Score Rationale",    "fieldValue": "={{ $json.chapRationale }}" },
+            { "column": "Continuity Notes",   "fieldValue": "={{ $json.chapContinuityIssues }}" },
+            { "column": "Strengths",          "fieldValue": "={{ $json.chapStrengths }}" },
+            { "column": "Iteration Count",    "fieldValue": "={{ $json.chapIteration }}" },
+            { "column": "Status",             "fieldValue": "={{ $json.chapFinalStatus }}" },
+            { "column": "Completed At",       "fieldValue": "={{ $now.toISO() }}" }
+          ]
+        }
+      },
+      "id": "save_chapter",
+      "name": "Save Chapter to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [3440, 300]
+    },
+    {
+      "parameters": {
+        "content": "=## ✅ Chapter approved and saved\nNext: trigger Phase 4 voting or Phase 5 image generation",
+        "height": 60
+      },
+      "id": "done_note",
+      "name": "Done",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [3640, 200]
+    }
+  ],
+  "connections": {
+    "Manual Trigger":          { "main": [[{ "node": "Set Run Config",             "type": "main", "index": 0 }]] },
+    "Set Run Config":          { "main": [[{ "node": "Load Draft Acts",            "type": "main", "index": 0 }]] },
+    "Load Draft Acts":         { "main": [[{ "node": "Loop Acts",                  "type": "main", "index": 0 }]] },
+    "Loop Acts":               { "main": [[{ "node": "Prep Act Context",           "type": "main", "index": 0 }]] },
+    "Prep Act Context":        { "main": [[{ "node": "Act Reviewer (Claude)",      "type": "main", "index": 0 }]] },
+    "Act Reviewer (Claude)":   { "main": [[{ "node": "Parse Review JSON",          "type": "main", "index": 0 }]] },
+    "Parse Review JSON":       { "main": [[{ "node": "Score Gate (≥9?)",           "type": "main", "index": 0 }]] },
+    "Score Gate (≥9?)": {
+      "main": [
+        [{ "node": "Finalize Act Status",      "type": "main", "index": 0 }],
+        [{ "node": "Retry Cap Reached?",       "type": "main", "index": 0 }]
+      ]
+    },
+    "Retry Cap Reached?": {
+      "main": [
+        [{ "node": "Finalize Act Status",      "type": "main", "index": 0 }],
+        [{ "node": "Act Improver (Claude)",    "type": "main", "index": 0 }]
+      ]
+    },
+    "Act Improver (Claude)":   { "main": [[{ "node": "Update Act Content",         "type": "main", "index": 0 }]] },
+    "Update Act Content":      { "main": [[{ "node": "Act Reviewer (Claude)",      "type": "main", "index": 0 }]] },
+    "Finalize Act Status":     { "main": [[{ "node": "Save Approved Act to Sheets","type": "main", "index": 0 }]] },
+    "Save Approved Act to Sheets": { "main": [[{ "node": "Loop Acts",             "type": "main", "index": 0 }]] },
+    "Load All Approved Acts":  { "main": [[{ "node": "Concatenate Acts",           "type": "main", "index": 0 }]] },
+    "Concatenate Acts":        { "main": [[{ "node": "Chapter Reviewer (Claude)",  "type": "main", "index": 0 }]] },
+    "Chapter Reviewer (Claude)":{ "main": [[{ "node": "Parse Chapter Review",     "type": "main", "index": 0 }]] },
+    "Parse Chapter Review":    { "main": [[{ "node": "Chapter Score Gate",         "type": "main", "index": 0 }]] },
+    "Chapter Score Gate": {
+      "main": [
+        [{ "node": "Finalize Chapter Status",  "type": "main", "index": 0 }],
+        [{ "node": "Chapter Retry Cap?",       "type": "main", "index": 0 }]
+      ]
+    },
+    "Chapter Retry Cap?": {
+      "main": [
+        [{ "node": "Finalize Chapter Status",  "type": "main", "index": 0 }],
+        [{ "node": "Chapter Improver (Claude)","type": "main", "index": 0 }]
+      ]
+    },
+    "Chapter Improver (Claude)":{ "main": [[{ "node": "Update Chapter Text",      "type": "main", "index": 0 }]] },
+    "Update Chapter Text":     { "main": [[{ "node": "Chapter Reviewer (Claude)", "type": "main", "index": 0 }]] },
+    "Finalize Chapter Status": { "main": [[{ "node": "Save Chapter to Sheets",    "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "executionTimeout": 3600
+  },
+  "meta": {
+    "notes": [
+      "SETUP: In 'Set Run Config', change chapterNum to the chapter you want to process.",
+      "CREDENTIAL: Create an HTTP Header Auth credential named 'Anthropic API Key' with header name 'x-api-key' and your API key as the value.",
+      "After Loop Acts finishes all 5 acts, connect 'Loop Acts' done output to 'Load All Approved Acts' to trigger the chapter-level review.",
+      "The loop (Update Act Content → Act Reviewer) will cycle until score >= 9 OR iteration >= maxActRetries.",
+      "needs_human_review acts/chapters are saved but flagged for manual inspection before proceeding."
+    ]
+  }
+}

@@ -1,0 +1,353 @@
+{
+  "name": "VBook — Phase 6: Video Assembly (Narration + TTS + FFmpeg)",
+  "nodes": [
+
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+
+    {
+      "parameters": {
+        "values": {
+          "number": [
+            { "name": "chapterNumber", "value": 1 },
+            { "name": "targetDurationSeconds", "value": 300 }
+          ],
+          "string": [
+            { "name": "narratorVoiceId", "value": "REPLACE_WITH_ELEVENLABS_VOICE_ID" },
+            { "name": "ttsProvider", "value": "elevenlabs" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "notes": "ttsProvider: 'elevenlabs' or 'openai'. narratorVoiceId: ElevenLabs voice ID for narrator. targetDurationSeconds: 300 = 5 minute short."
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Chapters!A:F",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-chapter",
+      "name": "Read Chapter",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Images!A:N",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-images",
+      "name": "Read Images",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 480],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Characters!A:H",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-characters",
+      "name": "Read Characters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 640],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Find chapter and image data ───────────────────────────────────────────\nconst config = $('Set Config').first().json;\nconst chapterItems = $('Read Chapter').all();\nconst imageItems = $('Read Images').all();\nconst charItems = $('Read Characters').all();\n\nconst chapter = chapterItems\n  .filter(i => String(i.json['Chapter']) === String(config.chapterNumber))\n  .sort((a,b) => new Date(b.json['Timestamp']||0) - new Date(a.json['Timestamp']||0))[0];\n\nif (!chapter) throw new Error(`Chapter ${config.chapterNumber} not found`);\n\nconst images = imageItems\n  .filter(i => String(i.json['chapterNumber']) === String(config.chapterNumber) && i.json['status'] === 'generated')\n  .sort((a,b) => {\n    const actA = Number(a.json['actNumber']);\n    const actB = Number(b.json['actNumber']);\n    if (actA !== actB) return actA - actB;\n    return Number(a.json['sceneNumber']) - Number(b.json['sceneNumber']);\n  })\n  .map(i => i.json);\n\nif (images.length === 0) throw new Error('No generated images found for chapter ' + config.chapterNumber);\n\n// Build character voice mapping (for ElevenLabs per-character voices)\n// Update these voice IDs with your actual ElevenLabs voice IDs\nconst characterVoices = {\n  'Caelin Thorne':              'ELEVENLABS_CAELIN_VOICE_ID',\n  'Virella \"Vex\" Sunshadow':   'ELEVENLABS_VEX_VOICE_ID',\n  'Thornik Bramblebrew':        'ELEVENLABS_THORNIK_VOICE_ID',\n  'Serana Valeblade':           'ELEVENLABS_SERANA_VOICE_ID',\n  'Durgan Nightcloak':          'ELEVENLABS_DURGAN_VOICE_ID',\n  'Elowen Greenbloom':          'ELEVENLABS_ELOWEN_VOICE_ID',\n  'Nyxara Veilthorn':           'ELEVENLABS_NYXARA_VOICE_ID',\n};\n\nreturn [{\n  json: {\n    chapterNumber: config.chapterNumber,\n    chapterTitle: chapter.json['Title'] || `Chapter ${config.chapterNumber}`,\n    chapterContent: chapter.json['Content'] || '',\n    targetDuration: config.targetDurationSeconds,\n    narratorVoiceId: config.narratorVoiceId,\n    ttsProvider: config.ttsProvider,\n    imageCount: images.length,\n    imageDriveUrls: JSON.stringify(images.map(i => i.drivePath)),\n    imageDescriptions: JSON.stringify(images.map(i => i.sceneDescription)),\n    characterVoices: JSON.stringify(characterVoices),\n    targetWordCount: Math.round(config.targetDurationSeconds / 60 * 140),\n  }\n}];"
+      },
+      "id": "prepare-assets",
+      "name": "Prepare Assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "=model", "value": "claude-sonnet-4-20250514" },
+            { "name": "=max_tokens", "value": "2000" },
+            {
+              "name": "=system",
+              "value": "You are a narration scriptwriter condensing fiction for spoken audio delivery.\n\nWrite narration that:\n- Flows naturally when read aloud (no awkward sentence structures)\n- Uses vivid, descriptive language that works without visuals\n- Preserves the tone and voice of the original\n- Transitions smoothly between scenes\n- Does NOT reproduce dialogue verbatim (paraphrase or summarise instead — dialogue will be voiced separately)\n\nOutput ONLY the narration script text. No preamble, no scene labels, no instructions."
+            },
+            {
+              "name": "=messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Condense the following chapter into a narration script of approximately \" + $json.targetWordCount + \" words (~\" + Math.round($json.targetDuration/60) + \" minutes at natural speaking pace).\\n\\nChapter: \" + $json.chapterTitle + \"\\n\\n\" + $json.chapterContent.slice(0,8000) }]"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "claude-narration",
+      "name": "Claude — Write Narration Script",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 300]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "=model", "value": "claude-sonnet-4-20250514" },
+            { "name": "=max_tokens", "value": "3000" },
+            {
+              "name": "=system",
+              "value": "You extract all spoken dialogue from fiction chapters for voice acting.\n\nReturn ONLY valid JSON — an array of dialogue objects. No preamble."
+            },
+            {
+              "name": "=messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"Extract all dialogue from this chapter. For each line of dialogue, identify the speaker and their exact words.\\n\\n## Chapter Content\\n\" + $json.chapterContent.slice(0,8000) + \"\\n\\nReturn ONLY a JSON array:\\n[\\n  {\\n    \\\"speaker\\\": \\\"<character name, must exactly match one of: Caelin Thorne, Virella 'Vex' Sunshadow, Thornik Bramblebrew, Serana Valeblade, Durgan Nightcloak, Elowen Greenbloom, Nyxara Veilthorn>\\\",\\n    \\\"text\\\": \\\"<exact dialogue text>\\\",\\n    \\\"emotion\\\": \\\"<speaking emotion: neutral/tense/afraid/angry/warm/sardonic/etc.>\\\"\\n  },\\n  ...\\n]\" }]"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "claude-dialogue",
+      "name": "Claude — Extract Dialogue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 540]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Parse narration and dialogue ─────────────────────────────────────────\nconst narrationResponse = $('Claude — Write Narration Script').first().json;\nconst dialogueResponse = $('Claude — Extract Dialogue').first().json;\nconst ctx = $('Prepare Assets').first().json;\n\nconst narrationText = narrationResponse.content?.[0]?.text || '';\n\nlet dialogueLines = [];\ntry {\n  const raw = dialogueResponse.content?.[0]?.text || '';\n  dialogueLines = JSON.parse(raw.replace(/```json|```/g,'').trim());\n} catch(e) {\n  console.log('Could not parse dialogue:', e.message);\n  dialogueLines = [];\n}\n\n// Build SRT subtitle file from narration\nconst words = narrationText.split(/\\s+/);\nconst wordsPerSecond = 140/60;\nconst chunkSize = 10;\nconst srtLines = [];\nlet srtIndex = 1;\nfor (let i = 0; i < words.length; i += chunkSize) {\n  const chunk = words.slice(i, i+chunkSize).join(' ');\n  const startSec = i / wordsPerSecond;\n  const endSec = Math.min((i+chunkSize) / wordsPerSecond, words.length / wordsPerSecond);\n  const fmtTime = (s) => {\n    const h = Math.floor(s/3600);\n    const m = Math.floor((s%3600)/60);\n    const sec = Math.floor(s%60);\n    const ms = Math.floor((s%1)*1000);\n    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')},${String(ms).padStart(3,'0')}`;\n  };\n  srtLines.push(`${srtIndex}\\n${fmtTime(startSec)} --> ${fmtTime(endSec)}\\n${chunk}\\n`);\n  srtIndex++;\n}\nconst srtContent = srtLines.join('\\n');\n\nreturn [{\n  json: {\n    ...ctx,\n    narrationText,\n    narrationWordCount: words.length,\n    estimatedDurationSeconds: Math.round(words.length / (140/60)),\n    dialogueLines: JSON.stringify(dialogueLines),\n    dialogueCount: dialogueLines.length,\n    srtContent,\n  }\n}];"
+      },
+      "id": "parse-narration-dialogue",
+      "name": "Parse Narration + Dialogue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 420]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.elevenlabs.io/v1/text-to-speech/{{ $json.narratorVoiceId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "xi-api-key", "value": "={{ $env.ELEVENLABS_API_KEY }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text\": {{ JSON.stringify($json.narrationText.slice(0, 5000)) }},\n  \"model_id\": \"eleven_multilingual_v2\",\n  \"voice_settings\": {\n    \"stability\": 0.75,\n    \"similarity_boost\": 0.80,\n    \"style\": 0.1,\n    \"use_speaker_boost\": true\n  }\n}",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "id": "elevenlabs-narration",
+      "name": "ElevenLabs — Narration TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 300],
+      "notes": "Requires ELEVENLABS_API_KEY env var. Long narrations may need to be chunked."
+    },
+
+    {
+      "parameters": {
+        "name": "=Chapter_{{ $('Prepare Assets').first().json.chapterNumber }}_narration.mp3",
+        "driveId": { "value": "my_drive" },
+        "folderId": { "value": "={{ $env.GDRIVE_AUDIO_FOLDER_ID }}" },
+        "options": {}
+      },
+      "id": "upload-narration-audio",
+      "name": "Upload Narration to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1760, 300],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Drive — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Generate SRT file and save to disk for FFmpeg ────────────────────────\n// NOTE: This node runs n8n's Execute Command in the next step\n// Here we format the ffmpeg command\n\nconst ctx = $('Parse Narration + Dialogue').first().json;\nconst narrationDrivePath = $('Upload Narration to Drive').first().json.webViewLink || '';\n\n// Build FFmpeg assembly command\n// This runs on the Railway server where n8n is hosted\n// Requirements: ffmpeg installed, images already downloaded to local temp paths\n\nconst chapterNum = String(ctx.chapterNumber).padStart(2, '0');\nconst imageDir = `/tmp/vbook/images/ch${chapterNum}`;\nconst audioFile = `/tmp/vbook/audio/ch${chapterNum}_narration.mp3`;\nconst srtFile = `/tmp/vbook/srt/ch${chapterNum}.srt`;\nconst outputFile = `/tmp/vbook/output/Chapter_${chapterNum}_Short.mp4`;\n\nconst imageCount = ctx.imageCount || 10;\nconst durationPerImage = Math.round((ctx.estimatedDurationSeconds || 300) / imageCount);\n\n// Write SRT file command\nconst writeSrtCmd = `echo '${ctx.srtContent.replace(/'/g,\"'\\\\''\")}' > ${srtFile}`;\n\n// FFmpeg command:\n// 1. Create video from images (each image displayed for durationPerImage seconds)\n// 2. Add narration audio\n// 3. Burn subtitles\n// 4. Add 5s title card at start\n\nconst ffmpegCmd = [\n  `mkdir -p ${imageDir} /tmp/vbook/audio /tmp/vbook/srt /tmp/vbook/output`,\n  `ffmpeg -y`,\n  `-framerate 1/${durationPerImage}`,\n  `-pattern_type glob -i '${imageDir}/*.png'`,\n  `-i '${audioFile}'`,\n  `-vf \"subtitles=${srtFile}:force_style='FontSize=18,PrimaryColour=&Hffffff&,OutlineColour=&H000000&,Outline=2'\"`,\n  `-c:v libx264 -preset slow -crf 22`,\n  `-c:a aac -b:a 128k`,\n  `-shortest`,\n  `-pix_fmt yuv420p`,\n  `\"${outputFile}\"`\n].join(' ');\n\nreturn [{\n  json: {\n    ...ctx,\n    writeSrtCmd,\n    ffmpegCmd,\n    outputFile,\n    imageDir,\n    audioFile,\n    chapterNum,\n    durationPerImage,\n  }\n}];"
+      },
+      "id": "build-ffmpeg-command",
+      "name": "Build FFmpeg Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1980, 420]
+    },
+
+    {
+      "parameters": {
+        "command": "={{ $json.writeSrtCmd }}"
+      },
+      "id": "write-srt-file",
+      "name": "Write SRT File",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2200, 300],
+      "notes": "Writes the subtitle file to disk on the Railway server"
+    },
+
+    {
+      "parameters": {
+        "command": "={{ $json.ffmpegCmd }}"
+      },
+      "id": "run-ffmpeg",
+      "name": "Run FFmpeg Assembly",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2200, 540],
+      "notes": "IMPORTANT: FFmpeg must be installed on Railway server. Add to Dockerfile or Railway build command: apt-get install -y ffmpeg. Also requires images pre-downloaded to /tmp/vbook/images/. May need a separate download step before this runs."
+    },
+
+    {
+      "parameters": {
+        "name": "=Chapter_{{ $('Prepare Assets').first().json.chapterNumber }}_Short.mp4",
+        "driveId": { "value": "my_drive" },
+        "folderId": { "value": "={{ $env.GDRIVE_VIDEO_FOLDER_ID }}" },
+        "options": {}
+      },
+      "id": "upload-video-to-drive",
+      "name": "Upload Final Video to Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2420, 420],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Drive — VBook"
+        }
+      },
+      "notes": "Requires GDRIVE_VIDEO_FOLDER_ID env var"
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Save media record to Sheets ───────────────────────────────────────────\nconst ctx = $('Parse Narration + Dialogue').first().json;\nconst videoUpload = $('Upload Final Video to Drive').first().json;\nconst narrationUpload = $('Upload Narration to Drive').first().json;\n\nreturn [{\n  json: {\n    Chapter: ctx.chapterNumber,\n    Title: ctx.chapterTitle,\n    NarrationDriveUrl: narrationUpload.webViewLink || '',\n    VideoDriveUrl: videoUpload.webViewLink || '',\n    NarrationWordCount: ctx.narrationWordCount,\n    EstimatedDurationSeconds: ctx.estimatedDurationSeconds,\n    DialogueLineCount: ctx.dialogueCount,\n    ImageCount: ctx.imageCount,\n    Status: 'assembled',\n    AssembledAt: new Date().toISOString(),\n  }\n}];"
+      },
+      "id": "format-media-record",
+      "name": "Format Media Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2640, 420]
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Media!A:K",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "autoMap"
+      },
+      "id": "save-media-record",
+      "name": "Save Media Record to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2860, 420],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    }
+  ],
+
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Read Chapter", "type": "main", "index": 0 }, { "node": "Read Images", "type": "main", "index": 0 }, { "node": "Read Characters", "type": "main", "index": 0 }]] },
+    "Read Chapter": { "main": [[{ "node": "Prepare Assets", "type": "main", "index": 0 }]] },
+    "Read Images": { "main": [[{ "node": "Prepare Assets", "type": "main", "index": 0 }]] },
+    "Read Characters": { "main": [[{ "node": "Prepare Assets", "type": "main", "index": 0 }]] },
+    "Prepare Assets": { "main": [[{ "node": "Claude — Write Narration Script", "type": "main", "index": 0 }, { "node": "Claude — Extract Dialogue", "type": "main", "index": 0 }]] },
+    "Claude — Write Narration Script": { "main": [[{ "node": "Parse Narration + Dialogue", "type": "main", "index": 0 }]] },
+    "Claude — Extract Dialogue": { "main": [[{ "node": "Parse Narration + Dialogue", "type": "main", "index": 0 }]] },
+    "Parse Narration + Dialogue": { "main": [[{ "node": "ElevenLabs — Narration TTS", "type": "main", "index": 0 }]] },
+    "ElevenLabs — Narration TTS": { "main": [[{ "node": "Upload Narration to Drive", "type": "main", "index": 0 }]] },
+    "Upload Narration to Drive": { "main": [[{ "node": "Build FFmpeg Command", "type": "main", "index": 0 }]] },
+    "Build FFmpeg Command": { "main": [[{ "node": "Write SRT File", "type": "main", "index": 0 }, { "node": "Run FFmpeg Assembly", "type": "main", "index": 0 }]] },
+    "Write SRT File": { "main": [[{ "node": "Upload Final Video to Drive", "type": "main", "index": 0 }]] },
+    "Run FFmpeg Assembly": { "main": [[{ "node": "Upload Final Video to Drive", "type": "main", "index": 0 }]] },
+    "Upload Final Video to Drive": { "main": [[{ "node": "Format Media Record", "type": "main", "index": 0 }]] },
+    "Format Media Record": { "main": [[{ "node": "Save Media Record to Sheets", "type": "main", "index": 0 }]] }
+  },
+
+  "settings": { "executionOrder": "v1" },
+  "tags": [],
+  "meta": { "instanceId": "vbook-pipeline" }
+}

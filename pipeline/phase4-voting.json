@@ -1,0 +1,486 @@
+{
+  "name": "VBook — Phase 4: Community Voting",
+  "nodes": [
+
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+
+    {
+      "parameters": {
+        "values": {
+          "number": [
+            { "name": "chapterNumber", "value": 1 },
+            { "name": "voteWindowDays", "value": 7 }
+          ],
+          "string": [
+            { "name": "mode", "value": "generate_options" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-config",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [460, 300],
+      "notes": "mode: 'generate_options' to generate and publish plot options. Set to 'tally_votes' to count votes and pick winner."
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Chapters!A:F",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-chapters",
+      "name": "Read Chapters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "World_Info!A:C",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-world-info",
+      "name": "Read World Info",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 480],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Characters!A:H",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-characters",
+      "name": "Read Characters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 640],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Decide which path to take ────────────────────────────────────────────\nconst config = $('Set Config').first().json;\nconst mode = config.mode;\n\nconst chapterItems = $('Read Chapters').all();\nconst worldItems = $('Read World Info').all();\nconst charItems = $('Read Characters').all();\n\n// Find the approved chapter we just finished\nconst approvedChapter = chapterItems\n  .filter(i => String(i.json['Chapter']) === String(config.chapterNumber) && i.json['Status'] === 'approved')\n  .sort((a,b) => Number(b.json['Chapter']) - Number(a.json['Chapter']))[0];\n\nconst chapterText = approvedChapter ? approvedChapter.json['Content'] || '' : '';\n\nconst worldInfoText = worldItems\n  .filter(i => i.json['Key'] && i.json['Value'])\n  .map(i => `${i.json['Key']}: ${i.json['Value']}`)\n  .join('\\n');\n\nconst charactersText = charItems\n  .filter(i => i.json['Name'] && (!i.json['Status'] || i.json['Status'] === 'active'))\n  .map(i => `${i.json['Name']} (${i.json['Role']})`)\n  .join(', ');\n\nreturn [{\n  json: {\n    mode,\n    chapterNumber: config.chapterNumber,\n    nextChapterNumber: config.chapterNumber + 1,\n    voteWindowDays: config.voteWindowDays,\n    chapterText: chapterText.slice(0, 3000),\n    worldInfoText,\n    charactersText,\n    isEvery3rdChapter: (config.chapterNumber % 3 === 0),\n  }\n}];"
+      },
+      "id": "prepare-context",
+      "name": "Prepare Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "string": [{ "value1": "={{ $json.mode }}", "operation": "equal", "value2": "generate_options" }]
+        }
+      },
+      "id": "mode-switch",
+      "name": "Mode Switch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1100, 400]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=model",
+              "value": "claude-sonnet-4-20250514"
+            },
+            {
+              "name": "=max_tokens",
+              "value": "1000"
+            },
+            {
+              "name": "=system",
+              "value": "You are the creative director of a community-driven serial fiction novel.\n\nYou generate plot direction options for community voting. Each option must:\n- Be genuinely distinct from the others (not just tone variations)\n- Create interesting story consequences\n- Be achievable within one chapter (5 acts)\n- Feel exciting and worth voting for\n\nYou must return ONLY valid JSON — no preamble, no explanation."
+            },
+            {
+              "name": "=messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"## World Info\\n\" + $json.worldInfoText + \"\\n\\n## Active Characters\\n\" + $json.charactersText + \"\\n\\n## Chapter \" + $json.chapterNumber + \" Summary (end of last chapter)\\n\" + $json.chapterText + \"\\n\\nGenerate 3 distinct plot directions for Chapter \" + $json.nextChapterNumber + \". Each option should pull the story in a meaningfully different direction.\\n\\nReturn ONLY this JSON:\\n{\\n  \\\"chapterNumber\\\": \" + $json.nextChapterNumber + \",\\n  \\\"optionA\\\": {\\n    \\\"title\\\": \\\"<short compelling title>\\\",\\n    \\\"description\\\": \\\"<2-3 sentences describing what happens if this option wins>\\\",\\n    \\\"consequence\\\": \\\"<1 sentence on the long-term ripple effect>\\\"\\n  },\\n  \\\"optionB\\\": {\\n    \\\"title\\\": \\\"<short compelling title>\\\",\\n    \\\"description\\\": \\\"<2-3 sentences describing what happens if this option wins>\\\",\\n    \\\"consequence\\\": \\\"<1 sentence on the long-term ripple effect>\\\"\\n  },\\n  \\\"optionC\\\": {\\n    \\\"title\\\": \\\"<short compelling title>\\\",\\n    \\\"description\\\": \\\"<2-3 sentences describing what happens if this option wins>\\\",\\n    \\\"consequence\\\": \\\"<1 sentence on the long-term ripple effect>\\\"\\n  }\\n}\" }]"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "claude-generate-options",
+      "name": "Claude — Generate Vote Options",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 260]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Parse Claude's vote options response ─────────────────────────────────\nconst response = $('Claude — Generate Vote Options').first().json;\nconst text = response.content?.[0]?.text || '';\n\nlet parsed;\ntry {\n  const clean = text.replace(/```json|```/g, '').trim();\n  parsed = JSON.parse(clean);\n} catch(e) {\n  throw new Error('Failed to parse vote options JSON: ' + text.slice(0,200));\n}\n\nconst ctx = $('Prepare Context').first().json;\nconst now = new Date().toISOString();\nconst voteDeadline = new Date(Date.now() + ctx.voteWindowDays * 24 * 60 * 60 * 1000).toISOString();\n\nreturn [{\n  json: {\n    ...ctx,\n    chapterNumber: parsed.chapterNumber,\n    optionA_title: parsed.optionA.title,\n    optionA_desc: parsed.optionA.description,\n    optionA_consequence: parsed.optionA.consequence,\n    optionB_title: parsed.optionB.title,\n    optionB_desc: parsed.optionB.description,\n    optionB_consequence: parsed.optionB.consequence,\n    optionC_title: parsed.optionC.title,\n    optionC_desc: parsed.optionC.description,\n    optionC_consequence: parsed.optionC.consequence,\n    votesA: 0,\n    votesB: 0,\n    votesC: 0,\n    winner: '',\n    status: 'open',\n    createdAt: now,\n    deadline: voteDeadline,\n  }\n}];"
+      },
+      "id": "parse-vote-options",
+      "name": "Parse Vote Options",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 260]
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Votes!A:P",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "autoMap"
+      },
+      "id": "save-vote-options",
+      "name": "Save Vote Options to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1760, 260],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      },
+      "notes": "Writes one row to Votes tab: Chapter, OptionA/B/C text, vote counts (0), status=open, deadline"
+    },
+
+    {
+      "parameters": {
+        "url": "={{ $env.VOTING_WEBHOOK_URL || 'https://your-voting-site.com/api/publish' }}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chapter", "value": "={{ $json.chapterNumber }}" },
+            { "name": "optionA", "value": "={{ JSON.stringify({title: $json.optionA_title, description: $json.optionA_desc, consequence: $json.optionA_consequence}) }}" },
+            { "name": "optionB", "value": "={{ JSON.stringify({title: $json.optionB_title, description: $json.optionB_desc, consequence: $json.optionB_consequence}) }}" },
+            { "name": "optionC", "value": "={{ JSON.stringify({title: $json.optionC_title, description: $json.optionC_desc, consequence: $json.optionC_consequence}) }}" },
+            { "name": "deadline", "value": "={{ $json.deadline }}" }
+          ]
+        }
+      },
+      "id": "publish-to-voting-site",
+      "name": "Publish to Voting Site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 260],
+      "notes": "Optional: POST to voting site webhook to auto-publish. Set VOTING_WEBHOOK_URL env var."
+    },
+
+    {
+      "parameters": {
+        "operation": "read",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Votes!A:P",
+        "options": {
+          "valueRenderMode": "FORMATTED_VALUE",
+          "dataLocationOnSheet": { "autoMapInputData": true, "headerRow": 1 }
+        }
+      },
+      "id": "read-votes",
+      "name": "Read Votes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1320, 540],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Tally votes and determine winner ─────────────────────────────────────\nconst ctx = $('Prepare Context').first().json;\nconst voteItems = $('Read Votes').all();\n\n// Find the open vote for the next chapter\nconst voteRow = voteItems\n  .filter(i => String(i.json['chapterNumber']) === String(ctx.nextChapterNumber) && i.json['status'] === 'open')\n  .sort((a,b) => new Date(b.json['createdAt']) - new Date(a.json['createdAt']))[0];\n\nif (!voteRow) {\n  throw new Error(`No open vote found for chapter ${ctx.nextChapterNumber}`);\n}\n\nconst votesA = parseInt(voteRow.json['votesA']) || 0;\nconst votesB = parseInt(voteRow.json['votesB']) || 0;\nconst votesC = parseInt(voteRow.json['votesC']) || 0;\nconst total = votesA + votesB + votesC;\n\nlet winner, winnerTitle, winnerDesc;\nif (votesA >= votesB && votesA >= votesC) {\n  winner = 'A'; winnerTitle = voteRow.json['optionA_title']; winnerDesc = voteRow.json['optionA_desc'];\n} else if (votesB >= votesA && votesB >= votesC) {\n  winner = 'B'; winnerTitle = voteRow.json['optionB_title']; winnerDesc = voteRow.json['optionB_desc'];\n} else {\n  winner = 'C'; winnerTitle = voteRow.json['optionC_title']; winnerDesc = voteRow.json['optionC_desc'];\n}\n\nconst percentA = total ? Math.round(votesA/total*100) : 0;\nconst percentB = total ? Math.round(votesB/total*100) : 0;\nconst percentC = total ? Math.round(votesC/total*100) : 0;\n\nreturn [{\n  json: {\n    ...ctx,\n    winner,\n    winnerTitle,\n    winnerDesc,\n    votesA, votesB, votesC, total,\n    percentA, percentB, percentC,\n    voteRowRef: voteRow.json,\n    plotDirectionForPrompt: `The community voted for Option ${winner}: \"${winnerTitle}\". ${winnerDesc}`,\n  }\n}];"
+      },
+      "id": "tally-votes",
+      "name": "Tally Votes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1540, 540]
+    },
+
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [{ "value1": "={{ $json.isEvery3rdChapter }}", "value2": true }]
+        }
+      },
+      "id": "check-character-vote",
+      "name": "Every 3rd Chapter?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1760, 540],
+      "notes": "Every 3rd chapter: also generate a new character via separate vote"
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "=model", "value": "claude-sonnet-4-20250514" },
+            { "name": "=max_tokens", "value": "800" },
+            {
+              "name": "=system",
+              "value": "You generate community voting options for a new character to join a serialised fantasy novel.\n\nReturn ONLY valid JSON."
+            },
+            {
+              "name": "=messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"## World Info\\n\" + $json.worldInfoText + \"\\n\\n## Existing Characters\\n\" + $json.charactersText + \"\\n\\nGenerate 3 distinct character concept options for the community to vote on. Each concept must feel meaningfully different — different backgrounds, roles, or narrative purposes.\\n\\nReturn ONLY:\\n{\\n  \\\"conceptA\\\": { \\\"title\\\": \\\"<name and role>\\\", \\\"hook\\\": \\\"<1 sentence that makes this character irresistible>\\\" },\\n  \\\"conceptB\\\": { \\\"title\\\": \\\"<name and role>\\\", \\\"hook\\\": \\\"<1 sentence that makes this character irresistible>\\\" },\\n  \\\"conceptC\\\": { \\\"title\\\": \\\"<name and role>\\\", \\\"hook\\\": \\\"<1 sentence that makes this character irresistible>\\\" }\\n}\" }]"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "claude-character-concepts",
+      "name": "Claude — Generate Character Concepts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1980, 460],
+      "notes": "Generates 3 character concept options for the community to vote on (every 3rd chapter)"
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "=model", "value": "claude-sonnet-4-20250514" },
+            { "name": "=max_tokens", "value": "1200" },
+            {
+              "name": "=system",
+              "value": "You create full character profiles for community-voted new characters in a serialised fantasy novel.\n\nThe character must feel like they belong in this world and will create interesting friction or connection with existing characters.\n\nReturn ONLY valid JSON."
+            },
+            {
+              "name": "=messages",
+              "value": "=[{ \"role\": \"user\", \"content\": \"## World Info\\n\" + $json.worldInfoText + \"\\n\\n## Existing Characters\\n\" + $json.charactersText + \"\\n\\n## Voted Character Concept\\nThe community voted for: \\\"\" + $json.winnerTitle + \"\\\". \" + $json.winnerDesc + \"\\n\\nCreate a full character profile.\\n\\nReturn ONLY this JSON:\\n{\\n  \\\"name\\\": \\\"<full name>\\\",\\n  \\\"role\\\": \\\"<role in story>\\\",\\n  \\\"physical_description\\\": \\\"<vivid physical description, 2-3 sentences>\\\",\\n  \\\"personality\\\": \\\"<personality traits, 2-3 sentences>\\\",\\n  \\\"backstory\\\": \\\"<backstory, 2-3 sentences>\\\",\\n  \\\"relationships\\\": \\\"<how they relate to existing characters>\\\",\\n  \\\"voice_style\\\": \\\"<how they speak>\\\",\\n  \\\"status\\\": \\\"active\\\"\\n}\" }]"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $env.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" }
+          ]
+        }
+      },
+      "id": "claude-build-character",
+      "name": "Claude — Build New Character",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 460]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Parse and format new character for Sheets ────────────────────────────\nconst response = $('Claude — Build New Character').first().json;\nconst text = response.content?.[0]?.text || '';\n\nlet char;\ntry {\n  char = JSON.parse(text.replace(/```json|```/g,'').trim());\n} catch(e) {\n  throw new Error('Failed to parse character JSON: ' + text.slice(0,200));\n}\n\nreturn [{\n  json: {\n    Name: char.name,\n    Role: char.role,\n    'Physical Description': char.physical_description,\n    Personality: char.personality,\n    Backstory: char.backstory,\n    Relationships: char.relationships,\n    'Voice Style': char.voice_style,\n    Status: char.status || 'active',\n  }\n}];"
+      },
+      "id": "parse-new-character",
+      "name": "Parse New Character",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, 460]
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Characters!A:H",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "autoMap"
+      },
+      "id": "save-new-character",
+      "name": "Save New Character to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2640, 460],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      }
+    },
+
+    {
+      "parameters": {
+        "operation": "update",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Votes!A:P",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "autoMap"
+      },
+      "id": "update-vote-winner",
+      "name": "Update Vote with Winner",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1980, 620],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      },
+      "notes": "Updates the vote row: sets winner=A/B/C, status=closed"
+    },
+
+    {
+      "parameters": {
+        "operation": "append",
+        "sheetId": { "value": "={{ $env.GOOGLE_SHEET_ID }}" },
+        "range": "Chapters!A:F",
+        "valueInputMode": "USER_ENTERED",
+        "options": {},
+        "dataMode": "define"
+      },
+      "id": "store-plot-direction",
+      "name": "Store Plot Direction in Chapters",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2200, 620],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets — VBook"
+        }
+      },
+      "notes": "Writes plot_direction to the upcoming chapter row so Phase 2 can pick it up"
+    },
+
+    {
+      "parameters": {
+        "scheduleInterval": [
+          { "field": "cronExpression", "expression": "0 9 * * *" }
+        ]
+      },
+      "id": "scheduled-tally-trigger",
+      "name": "Scheduled Vote Tally (Daily 9am)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 700],
+      "notes": "Runs daily at 9am. Tallies any votes past their deadline automatically."
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// ── Check for expired votes needing tallying ─────────────────────────────\nconst voteItems = $('Read Votes').all();\nconst now = new Date();\n\nconst expiredVotes = voteItems\n  .filter(i => i.json['status'] === 'open' && new Date(i.json['deadline']) < now)\n  .map(i => i.json);\n\nif (expiredVotes.length === 0) {\n  return [{ json: { action: 'none', message: 'No expired votes to tally.' } }];\n}\n\nreturn expiredVotes.map(v => ({ json: { ...v, action: 'tally', mode: 'tally_votes', chapterNumber: v.chapterNumber - 1, nextChapterNumber: v.chapterNumber } }));"
+      },
+      "id": "check-expired-votes",
+      "name": "Check for Expired Votes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 700]
+    }
+  ],
+
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Set Config", "type": "main", "index": 0 }]] },
+    "Set Config": { "main": [[{ "node": "Read Chapters", "type": "main", "index": 0 }, { "node": "Read World Info", "type": "main", "index": 0 }, { "node": "Read Characters", "type": "main", "index": 0 }]] },
+    "Read Chapters": { "main": [[{ "node": "Prepare Context", "type": "main", "index": 0 }]] },
+    "Read World Info": { "main": [[{ "node": "Prepare Context", "type": "main", "index": 0 }]] },
+    "Read Characters": { "main": [[{ "node": "Prepare Context", "type": "main", "index": 0 }]] },
+    "Prepare Context": { "main": [[{ "node": "Mode Switch", "type": "main", "index": 0 }]] },
+    "Mode Switch": {
+      "main": [
+        [{ "node": "Claude — Generate Vote Options", "type": "main", "index": 0 }],
+        [{ "node": "Read Votes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — Generate Vote Options": { "main": [[{ "node": "Parse Vote Options", "type": "main", "index": 0 }]] },
+    "Parse Vote Options": { "main": [[{ "node": "Save Vote Options to Sheets", "type": "main", "index": 0 }]] },
+    "Save Vote Options to Sheets": { "main": [[{ "node": "Publish to Voting Site", "type": "main", "index": 0 }]] },
+    "Read Votes": { "main": [[{ "node": "Tally Votes", "type": "main", "index": 0 }]] },
+    "Tally Votes": { "main": [[{ "node": "Every 3rd Chapter?", "type": "main", "index": 0 }]] },
+    "Every 3rd Chapter?": {
+      "main": [
+        [{ "node": "Claude — Generate Character Concepts", "type": "main", "index": 0 }],
+        [{ "node": "Update Vote with Winner", "type": "main", "index": 0 }]
+      ]
+    },
+    "Claude — Generate Character Concepts": { "main": [[{ "node": "Claude — Build New Character", "type": "main", "index": 0 }]] },
+    "Claude — Build New Character": { "main": [[{ "node": "Parse New Character", "type": "main", "index": 0 }]] },
+    "Parse New Character": { "main": [[{ "node": "Save New Character to Sheets", "type": "main", "index": 0 }]] },
+    "Save New Character to Sheets": { "main": [[{ "node": "Update Vote with Winner", "type": "main", "index": 0 }]] },
+    "Update Vote with Winner": { "main": [[{ "node": "Store Plot Direction in Chapters", "type": "main", "index": 0 }]] },
+    "Scheduled Vote Tally (Daily 9am)": { "main": [[{ "node": "Check for Expired Votes", "type": "main", "index": 0 }]] },
+    "Check for Expired Votes": { "main": [[{ "node": "Read Votes", "type": "main", "index": 0 }]] }
+  },
+
+  "settings": { "executionOrder": "v1" },
+  "tags": [],
+  "meta": { "instanceId": "vbook-pipeline" }
+}

@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Concord of Nine — Story Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ember: #C8741A;
+    --ember-dark: #8B4A0A;
+    --ember-glow: rgba(200, 116, 26, 0.15);
+    --void: #0a0a12;
+    --deep: #0f0f1e;
+    --surface: #14141f;
+    --panel: #1a1a2e;
+    --border: rgba(200, 116, 26, 0.2);
+    --border-bright: rgba(200, 116, 26, 0.6);
+    --text: #e8e0d0;
+    --muted: #7a7090;
+    --shadow-color: rgba(200, 116, 26, 0.08);
+    --green: #2d8a4e;
+    --violet: #7b3fb0;
+    --gold: #b8960c;
+    --slate: #3a5a7a;
+    --teal: #1a7a7a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--void);
+    color: var(--text);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Atmospheric background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 80%, rgba(200,116,26,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 30% at 80% 20%, rgba(75,30,120,0.06) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────────────── */
+  header {
+    background: linear-gradient(180deg, rgba(14,14,24,0.98) 0%, rgba(10,10,18,0.95) 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    backdrop-filter: blur(20px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .logo-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    color: var(--ember);
+    font-weight: 600;
+  }
+
+  .logo-sep { color: var(--border-bright); font-size: 12px; }
+
+  .logo-sub {
+    font-family: 'Crimson Pro', serif;
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    letter-spacing: 0.05em;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Crimson Pro', serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+
+  .btn:hover { border-color: var(--ember); color: var(--ember); background: var(--ember-glow); }
+
+  .btn-primary {
+    border-color: var(--ember);
+    color: var(--ember);
+    background: var(--ember-glow);
+  }
+
+  .btn-primary:hover { background: rgba(200, 116, 26, 0.25); }
+
+  /* ── Nav tabs ─────────────────────────────────────────────────────────── */
+  .nav {
+    display: flex;
+    gap: 2px;
+    padding: 0 24px;
+    background: var(--deep);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-tab {
+    padding: 10px 18px;
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--ember); border-bottom-color: var(--ember); }
+
+  /* ── Main ────────────────────────────────────────────────────────────── */
+  main { padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Chapter Overview ─────────────────────────────────────────────────── */
+  .chapter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .chapter-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .chapter-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--ember);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .chapter-card:hover { border-color: var(--ember); transform: translateY(-1px); box-shadow: 0 8px 24px var(--shadow-color); }
+  .chapter-card:hover::before { opacity: 1; }
+
+  .chapter-card.has-content::before { opacity: 0.4; }
+
+  .chapter-num {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--ember);
+    margin-bottom: 4px;
+  }
+
+  .chapter-title-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .chapter-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .chapter-status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+
+  .status-draft { background: #5a7a3a; }
+  .status-outline { background: #4a6090; }
+  .status-written { background: var(--ember); }
+  .status-final { background: #2a7a4a; }
+
+  /* ── Add Chapter btn ─────────────────────────────────────────────────── */
+  .add-card {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .add-card:hover { border-color: var(--ember); color: var(--ember); background: var(--ember-glow); }
+
+  /* ── Chapter Detail ───────────────────────────────────────────────────── */
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .back-btn {
+    padding: 6px 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+
+  .back-btn:hover { border-color: var(--ember); color: var(--ember); }
+
+  .detail-title { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.1em; color: var(--ember); }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 24px;
+  }
+
+  .detail-main { display: flex; flex-direction: column; gap: 20px; }
+
+  /* ── Fields ──────────────────────────────────────────────────────────── */
+  .field-group {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .field-label {
+    padding: 8px 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ember);
+    border-bottom: 1px solid var(--border);
+    background: rgba(200,116,26,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .field-body { padding: 12px 14px; }
+
+  input[type="text"], textarea, select {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    font-size: 15px;
+    resize: vertical;
+    line-height: 1.6;
+  }
+
+  textarea { min-height: 80px; }
+
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); }
+
+  select {
+    cursor: pointer;
+    padding: 2px 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 13px;
+  }
+
+  select option { background: var(--panel); }
+
+  /* ── Acts grid ────────────────────────────────────────────────────────── */
+  .acts-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+
+  .act-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 10px;
+    position: relative;
+  }
+
+  .act-num {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--ember);
+    margin-bottom: 6px;
+  }
+
+  .act-card textarea {
+    font-size: 13px;
+    min-height: 100px;
+    color: var(--text);
+  }
+
+  .act-score {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .score-dots {
+    display: flex;
+    gap: 2px;
+  }
+
+  .score-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+
+  .score-dot.filled { background: var(--ember); }
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  .sidebar-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 8px 14px;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ember);
+    border-bottom: 1px solid var(--border);
+    background: rgba(200,116,26,0.05);
+  }
+
+  .sidebar-body { padding: 12px 14px; }
+
+  /* Characters checklist */
+  .char-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .char-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 3px;
+    transition: background 0.1s;
+  }
+
+  .char-item:hover { background: var(--ember-glow); }
+
+  .char-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    border: 2px solid;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+
+  .char-item.active .char-dot { background: currentColor; }
+
+  .char-name-label { font-size: 13px; color: var(--text); }
+  .char-role-label { font-size: 11px; color: var(--muted); font-style: italic; }
+
+  /* Flags */
+  .flags-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .flag-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text);
+    padding: 6px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .flag-emoji { flex-shrink: 0; font-size: 14px; }
+
+  .flag-text { flex: 1; }
+
+  .flag-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  .flag-item:hover .flag-delete { opacity: 1; }
+  .flag-delete:hover { color: #e55; }
+
+  .add-flag-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .add-flag-row input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .add-flag-row input:focus { border-color: var(--ember); }
+
+  .add-flag-btn {
+    padding: 5px 10px;
+    background: var(--ember-glow);
+    border: 1px solid var(--ember);
+    border-radius: 4px;
+    color: var(--ember);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    transition: background 0.15s;
+  }
+
+  .add-flag-btn:hover { background: rgba(200,116,26,0.3); }
+
+  /* ── Characters View ─────────────────────────────────────────────────── */
+  .characters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+
+  .char-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+
+  .char-card:hover { border-color: var(--border-bright); box-shadow: 0 8px 24px var(--shadow-color); }
+
+  .char-card-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .char-card-name {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .char-card-role { font-size: 12px; color: var(--muted); font-style: italic; }
+
+  .char-card-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+  .char-field-label {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+    font-family: 'Cinzel', serif;
+  }
+
+  .char-field-val { font-size: 13px; line-height: 1.5; color: var(--text); }
+
+  .char-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Cinzel', serif;
+  }
+
+  /* ── Lore View ───────────────────────────────────────────────────────── */
+  .lore-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 20px;
+  }
+
+  .lore-nav { display: flex; flex-direction: column; gap: 4px; }
+
+  .lore-nav-item {
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--muted);
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .lore-nav-item:hover { color: var(--text); background: var(--panel); }
+  .lore-nav-item.active { color: var(--ember); border-color: var(--border); background: var(--panel); }
+  .lore-nav-icon { font-size: 16px; }
+
+  .lore-content {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .lore-content-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(200,116,26,0.05);
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--ember);
+  }
+
+  .lore-content-body { padding: 16px; }
+
+  .lore-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    position: relative;
+  }
+
+  .lore-entry-key {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--ember);
+    margin-bottom: 4px;
+  }
+
+  .lore-entry-val { font-size: 14px; line-height: 1.6; color: var(--text); }
+
+  .lore-entry textarea {
+    background: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    resize: vertical;
+    min-height: 60px;
+    line-height: 1.6;
+  }
+
+  /* ── Timeline View ───────────────────────────────────────────────────── */
+  .timeline {
+    position: relative;
+    padding-left: 40px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0; bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .timeline-entry {
+    position: relative;
+    margin-bottom: 20px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    transition: border-color 0.2s;
+  }
+
+  .timeline-entry:hover { border-color: var(--border-bright); }
+
+  .timeline-dot {
+    position: absolute;
+    left: -33px;
+    top: 18px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--ember);
+    border: 2px solid var(--void);
+    box-shadow: 0 0 0 1px var(--ember);
+  }
+
+  .timeline-chapter {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ember);
+    margin-bottom: 4px;
+  }
+
+  .timeline-event-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .timeline-event-desc { font-size: 13px; color: var(--muted); }
+
+  /* ── Save indicator ──────────────────────────────────────────────────── */
+  .save-indicator {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .save-indicator.visible { opacity: 1; }
+  .save-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+
+  /* ── Section title ────────────────────────────────────────────────────── */
+  .section-title {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Modal ────────────────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+    transform: translateY(10px);
+    transition: transform 0.2s;
+  }
+
+  .modal-overlay.open .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    color: var(--ember);
+    margin-bottom: 16px;
+  }
+
+  .modal-field { margin-bottom: 14px; }
+
+  .modal-label {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .modal-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .modal-input:focus { border-color: var(--ember); }
+
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <span class="logo-title">THE CONCORD OF NINE</span>
+      <span class="logo-sep">·</span>
+      <span class="logo-sub">Story Planner</span>
+    </div>
+    <div class="header-actions">
+      <div class="save-indicator" id="saveIndicator">
+        <div class="save-dot"></div>
+        <span>Saved</span>
+      </div>
+      <button class="btn" onclick="exportData()">Export JSON</button>
+      <button class="btn" onclick="importData()">Import</button>
+      <button class="btn btn-primary" onclick="clearAll()">Reset</button>
+    </div>
+  </header>
+
+  <!-- ── Nav ─────────────────────────────────────────────────────────────── -->
+  <div class="nav">
+    <div class="nav-tab active" onclick="switchView('chapters', this)">Chapters</div>
+    <div class="nav-tab" onclick="switchView('characters', this)">Characters</div>
+    <div class="nav-tab" onclick="switchView('lore', this)">World Lore</div>
+    <div class="nav-tab" onclick="switchView('timeline', this)">Timeline</div>
+  </div>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- CHAPTERS VIEW -->
+    <div class="view active" id="view-chapters">
+      <div id="chapters-list-view">
+        <div class="section-title" style="margin-bottom:20px;">Book 1 — The Dragon's Last Breath</div>
+        <div class="chapter-grid" id="chapterGrid"></div>
+      </div>
+      <div id="chapter-detail-view" style="display:none;"></div>
+    </div>
+
+    <!-- CHARACTERS VIEW -->
+    <div class="view" id="view-characters">
+      <div class="section-title">Character Roster</div>
+      <div class="characters-grid" id="charactersGrid"></div>
+    </div>
+
+    <!-- LORE VIEW -->
+    <div class="view" id="view-lore">
+      <div class="lore-grid">
+        <div class="lore-nav" id="loreNav"></div>
+        <div class="lore-content">
+          <div class="lore-content-header" id="loreContentHeader">World Info</div>
+          <div class="lore-content-body" id="loreContentBody"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE VIEW -->
+    <div class="view" id="view-timeline">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div class="section-title" style="margin:0;">Story Timeline</div>
+        <button class="btn btn-primary" onclick="addTimelineEvent()">+ Add Event</button>
+      </div>
+      <div class="timeline" id="timelineContainer"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Add Chapter Modal ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="addChapterModal">
+  <div class="modal">
+    <div class="modal-title">NEW CHAPTER</div>
+    <div class="modal-field">
+      <div class="modal-label">CHAPTER NUMBER</div>
+      <input class="modal-input" id="newChapNum" type="number" min="1" max="20" placeholder="1">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">CHAPTER TITLE</div>
+      <input class="modal-input" id="newChapTitle" placeholder="The Dragon's Last Breath">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addChapterModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddChapter()">Create Chapter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Timeline Event Modal ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="addTimelineModal">
+  <div class="modal">
+    <div class="modal-title">NEW TIMELINE EVENT</div>
+    <div class="modal-field">
+      <div class="modal-label">CHAPTER / DAY REFERENCE</div>
+      <input class="modal-input" id="newEventChapter" placeholder="Ch.1 Day 1">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">EVENT TITLE</div>
+      <input class="modal-input" id="newEventTitle" placeholder="Caelin bonds with dragon Vharisax">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">DESCRIPTION (OPTIONAL)</div>
+      <input class="modal-input" id="newEventDesc" placeholder="Dragon scale embeds in right forearm...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('addTimelineModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAddEvent()">Add Event</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Default Data ─────────────────────────────────────────────────────────────
+const DEFAULT_CHARACTERS = [
+  { name: "Caelin Thorne", role: "Fire Sorcerer / Ember-born", book: 1,
+    appearance: "Tall, lean. Windswept auburn hair. Ember-flecked hazel eyes. Charred-red duster. Dragon scale embedded in right forearm.",
+    personality: "Guilt-driven, brutally honest (scale stings when he lies), protective instinct, haunted by exile.",
+    arc: "Redemption. Prove visions were right. Stop the Seal. Fear: becoming the destructive force his family feared.",
+    voice: "Calm tenor, formal in crisis. Rarely uses contractions. Self-deprecating.", status: "active", color: "#8B2500" },
+  { name: "Virella \"Vex\" Sunshadow", role: "Rogue / Relic Hunter", book: 1,
+    appearance: "5'6\", lithe. Silver-streaked raven undercut. Mismatched eyes (left green, right gold). Dusky olive skin. Shadow-leather armor.",
+    personality: "Sharp-tongued, fiercely independent, allergic to sentimentality. Loyalty earned not given.",
+    arc: "Learns to trust. Transitions from solo to team. Graveside oath (Ch.11) as turning point.",
+    voice: "Husky mezzo, drips sarcasm. Quick clipped sentences. Drawling mockery when relaxed.", status: "active", color: "#2D5016" },
+  { name: "Thornik Bramblebrew", role: "Artificer / Engineer", book: 1,
+    appearance: "4'2\", barrel-chested. Wild copper-red hair. Braided beard with gear-charms. Goggles, scorched apron.",
+    personality: "Hearty optimist. Guilt-haunted by Wyrmspire Catastrophe. Relentless inventor.",
+    arc: "Vindicate grandfather's dragon-forge theories. Prove creation serves life not destruction.",
+    voice: "Booming baritone. Technical jargon + warmth. Gets excited mid-sentence.", status: "active", color: "#7B4200" },
+  { name: "Serana Valeblade", role: "Paladin / Knight of Silver Dawn", book: 1,
+    appearance: "5'10\", athletic. Honey-blonde military crop. Weathered gold-and-white plate armor, battle-scarred.",
+    personality: "Duty before self. Fierce protector. Faith under pressure. Questions doctrine, not core beliefs.",
+    arc: "Faith tested. Learns rigid doctrine must bend to serve true purpose.",
+    voice: "Warm contralto. Formal cadence, softened by years among common folk.", status: "active", color: "#856200" },
+  { name: "Durgan Nightcloak", role: "Assassin / Shadow-Possessed", book: 1,
+    appearance: "6'0\", whipcord-lean. Dark hair pulled tight. Ice-blue eyes. Charcoal leather coat. Always gloved. Shadow moves independently.",
+    personality: "Terse, economical. Trained to show nothing. Internal battle with possessing entity.",
+    arc: "Possession escalating. Group must decide: trust or fear. Internal battle for identity.",
+    voice: "Low gravel whisper. Minimal words. Signature: 'Understood.' 'It has opinions.'", status: "active", color: "#1C2D4A" },
+  { name: "Elowen Greenbloom", role: "Druid / Lifeweaver", book: 1,
+    appearance: "5'6\", graceful. Auburn curls with living blossoms. Vine-tattoos (pulse emerald when casting). Living circlet. Often bare-footed.",
+    personality: "Soft but firm. Empathic — feels natural world's pain. Healer first, fighter reluctantly.",
+    arc: "MIA Ch.7. Absence deeply felt. Returns in later books.",
+    voice: "Soft mezzo, melodic. Sylvan lilt. 'The forest screams.' 'Be still, shadow.'", status: "mia", color: "#2D6B3A" },
+  { name: "Nyxara Veilthorn", role: "Warlock / Pact-bound", book: 1,
+    appearance: "High-elf, appears mid-20s (100+). 5'8\". Midnight hair moves in low light. Lunar-violet glowing eyes. Living shadow-tattoos.",
+    personality: "Deliberate, every word chosen. Finds danger 'delightful.' Secrets as currency.",
+    arc: "Navigate patron agenda vs. genuine group alignment. Earn trust despite patron relationship.",
+    voice: "Smoky alto. Deliberate, never rushed. 'How delightful.' 'My patron finds this... amusing.'", status: "active", color: "#4A1060" },
+  { name: "Jasper Coinblight", role: "Relic Hunter / Legal Strategist", book: 2,
+    appearance: "TBD — Book 2 canonical image not yet generated.",
+    personality: "Charming, resourceful, finds loopholes where others find walls. Moral grey area.",
+    arc: "Found legal loophole to challenge Warden Prime for the Destruction Relic.",
+    voice: "TBD", status: "book2", color: "#4A6741" },
+  { name: "Puddle Thrym", role: "Underground Guide / Cartographer", book: 2,
+    appearance: "Half-orc, raised by rats in Depthspire sewers. TBD.",
+    personality: "Trusts rats more than people. Knows every tunnel and forgotten passage in Depthspire.",
+    arc: "Maps escape routes through Depthspire's underground for the group.",
+    voice: "TBD", status: "book2", color: "#2D6B77" },
+];
+
+const DEFAULT_CHAPTERS = [
+  { id: 1, num: 1, title: "The Dragon's Last Breath", status: "final",
+    synopsis: "Caelin arrives at Thornwick crater. Dying dragon Vharisax chooses him as Ember-born. Scale embeds in right forearm. Vex present — first meeting.",
+    themes: "Chosen without consent. The cost of destiny.",
+    openingHook: "The dragon had three heartbeats left, and it spent all of them looking at him.",
+    cliffhanger: "Scale begins spreading filaments under skin. Caelin doesn't know if it will stop.",
+    acts: [
+      { summary: "Caelin arrives at Thornwick, finds crater and dying dragon.", score: 9 },
+      { summary: "Vharisax speaks in dying Draconic. Vex observes from shadows.", score: 9 },
+      { summary: "Dragon chooses Caelin. Scale impact moment.", score: 10 },
+      { summary: "Immediate aftermath — pain, confusion, scale spreading.", score: 9 },
+      { summary: "Vex reveals herself. Uneasy first exchange. Chapter close.", score: 9 },
+    ],
+    characters: ["Caelin Thorne", "Virella \"Vex\" Sunshadow"],
+    flags: [
+      { type: "🔮", text: "Dragon's Ember relic seeded here — Caelin claims it Ch.5" },
+      { type: "🔗", text: "Scale stings when lying — establish early" },
+    ],
+    plotDirection: "",
+    notes: "",
+  },
+];
+
+const DEFAULT_LORE = [
+  { category: "Setting", key: "World", value: "Fractured realm of kingdoms, ancient dragon-bonds, and reality-warping relics. Magic is a cost, not a gift." },
+  { category: "Setting", key: "Tone", value: "Dark but hopeful. Gritty realism with moments of wonder and dry humour." },
+  { category: "Setting", key: "Themes", value: "Redemption, found family, cost of power, identity after exile, what it means to belong." },
+  { category: "Lore", key: "Dragon-blood lineages", value: "Real and heritable. The scale embedded in Caelin amplifies and transforms his innate gift." },
+  { category: "Lore", key: "The Concord of Nine", value: "Nine original dragons each chose a mortal companion and bound their essence into a physical relic at death. The Seal threatens to undo all nine bonds." },
+  { category: "Lore", key: "Relics", value: "Physical objects tied to the nine original dragon-bonds. Dragon's Ember (Caelin, Ch.5), Destruction Relic (Depthspire, Book 2), seven others scattered." },
+  { category: "Lore", key: "Shadow entities", value: "Real, sapient, own agendas. They bargain not just possess — initially. Durgan's entity is growing stronger." },
+  { category: "Lore", key: "Druidic magic", value: "Oldest form, predates the Concord. Cannot be learned, only inherited through lineage or chosen-by-grove." },
+  { category: "Rules", key: "Magic cost", value: "Every major power comes tethered to sacrifice, loss, or corruption." },
+  { category: "Rules", key: "Dragon's Ember cost", value: "Severe backlash pain, tunnel vision after use. Cannot be cast freely." },
+  { category: "Rules", key: "Scale stings when Caelin lies", value: "Established in Ch.1. Creates honest character by biological compulsion." },
+  { category: "Locations", key: "Thornwick", value: "Small frontier town. Opening location. Dragon Vharisax's bonding site." },
+  { category: "Locations", key: "Emberhall", value: "Volcanic capital of the Emberkin Dominion. Caelin's birthplace. He is exiled from here." },
+  { category: "Locations", key: "Depthspire", value: "Underground fortress city. Book 2 primary setting. Home of Warden Prime and Destruction Relic." },
+  { category: "Locations", key: "The Sanctum", value: "Ancient sealed chamber. Collapses in Ch.7. Triggers Elowen's disappearance and group fracture." },
+];
+
+const DEFAULT_TIMELINE = [
+  { chapter: "Ch.1 Day 1", title: "Caelin bonds with dragon Vharisax", desc: "Dragon scale embeds in right forearm. Vex present at crater." },
+  { chapter: "Ch.2 Day 4", title: "Thornik and Serana join the group", desc: "Thornik's contraption pointed to Thornwick 3 nights prior. Serana arrives from Silver Dawn duty." },
+  { chapter: "Ch.3 Day 5-6", title: "Elowen joins on forest trail. Durgan appears.", desc: "Elowen found healing near forest edge. Durgan's campfire appearance — dream/reality ambiguous." },
+  { chapter: "Ch.3 Day 7", title: "Durgan formally joins", desc: "Morning after campfire. Explains nothing. Shadow already moving independently." },
+  { chapter: "Ch.5", title: "Caelin claims Dragon's Ember relic", desc: "First use of relic power. Cost: severe backlash." },
+  { chapter: "Ch.7", title: "Sanctum collapse. Elowen MIA.", desc: "Group fractures. Elowen presumed dead. Nyxara discovered alive." },
+  { chapter: "Ch.8", title: "Nyxara formally joins fractured group", desc: "Trust deficit from all parties. Shadow patron agenda unknown." },
+  { chapter: "Ch.10", title: "Vex wounded", desc: "Significant injury. Survives." },
+  { chapter: "Ch.11", title: "Vex graveside oath", desc: "Turning point for Vex. Commits to group fully." },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let state = {
+  chapters: [],
+  characters: [],
+  lore: [],
+  timeline: [],
+};
+
+let currentChapterId = null;
+let currentLoreCategory = "Setting";
+let savePending = null;
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function save() {
+  localStorage.setItem('vbook_planner', JSON.stringify(state));
+  const ind = document.getElementById('saveIndicator');
+  ind.classList.add('visible');
+  clearTimeout(savePending);
+  savePending = setTimeout(() => ind.classList.remove('visible'), 2000);
+}
+
+function load() {
+  const raw = localStorage.getItem('vbook_planner');
+  if (raw) {
+    try { state = JSON.parse(raw); return; } catch(e) {}
+  }
+  // Seed with defaults
+  state.chapters = DEFAULT_CHAPTERS;
+  state.characters = DEFAULT_CHARACTERS;
+  state.lore = DEFAULT_LORE;
+  state.timeline = DEFAULT_TIMELINE;
+  save();
+}
+
+// ── Views ─────────────────────────────────────────────────────────────────────
+function switchView(name, tab) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  tab.classList.add('active');
+
+  // Reset chapter detail if switching away
+  if (name !== 'chapters') {
+    document.getElementById('chapters-list-view').style.display = '';
+    document.getElementById('chapter-detail-view').style.display = 'none';
+    currentChapterId = null;
+  }
+
+  if (name === 'chapters') renderChapters();
+  if (name === 'characters') renderCharacters();
+  if (name === 'lore') renderLore();
+  if (name === 'timeline') renderTimeline();
+}
+
+// ── CHAPTERS ──────────────────────────────────────────────────────────────────
+function renderChapters() {
+  const grid = document.getElementById('chapterGrid');
+  const statusLabels = { draft: 'Draft', outline: 'Outline', written: 'Written', final: 'Final' };
+  grid.innerHTML = state.chapters
+    .sort((a,b) => a.num - b.num)
+    .map(ch => `
+      <div class="chapter-card ${ch.synopsis || ch.acts?.some(a=>a.summary) ? 'has-content' : ''}"
+           onclick="openChapter(${ch.id})">
+        <div class="chapter-num">CHAPTER ${ch.num}</div>
+        <div class="chapter-title-text">${ch.title || 'Untitled'}</div>
+        <div class="chapter-meta">
+          <div class="chapter-status-dot status-${ch.status || 'draft'}"></div>
+          <span>${statusLabels[ch.status] || 'Draft'}</span>
+          ${ch.characters?.length ? `<span>·</span><span>${ch.characters.length} chars</span>` : ''}
+          ${ch.acts?.filter(a=>a.summary).length ? `<span>·</span><span>${ch.acts.filter(a=>a.summary).length}/5 acts</span>` : ''}
+        </div>
+      </div>
+    `).join('') +
+    `<div class="add-card" onclick="openAddChapterModal()">
+      <span>+</span><span>ADD CHAPTER</span>
+    </div>`;
+}
+
+function openChapter(id) {
+  currentChapterId = id;
+  const ch = state.chapters.find(c => c.id === id);
+  if (!ch) return;
+
+  document.getElementById('chapters-list-view').style.display = 'none';
+  const detail = document.getElementById('chapter-detail-view');
+  detail.style.display = '';
+
+  const statusOpts = ['draft','outline','written','final'].map(s =>
+    `<option value="${s}" ${ch.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`
+  ).join('');
+
+  const charCheckboxes = state.characters.filter(c => c.book === 1).map(c => {
+    const active = ch.characters?.includes(c.name);
+    return `
+      <div class="char-item ${active ? 'active' : ''}" onclick="toggleCharacter(${id},'${escQ(c.name)}')"
+           style="color: ${c.color}">
+        <div class="char-dot" style="border-color:${c.color}; ${active ? 'background:'+c.color : ''}"></div>
+        <div>
+          <div class="char-name-label" style="color:${c.color}">${c.name}</div>
+          <div class="char-role-label">${c.role.split('/')[0].trim()}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const acts = ch.acts || [{},{},{},{},{}];
+  while (acts.length < 5) acts.push({});
+
+  const actsHtml = acts.map((a, i) => `
+    <div class="act-card">
+      <div class="act-num">ACT ${i+1}</div>
+      <textarea placeholder="What happens in this act..." onchange="updateAct(${id},${i},'summary',this.value)">${a.summary||''}</textarea>
+      <div class="act-score">
+        <span>Score:</span>
+        <div class="score-dots">
+          ${Array.from({length:10},(_,j)=>`
+            <div class="score-dot ${(a.score||0)>j?'filled':''}" onclick="setActScore(${id},${i},${j+1})"></div>
+          `).join('')}
+        </div>
+        <span>${a.score||'—'}</span>
+      </div>
+    </div>
+  `).join('');
+
+  const flagsHtml = (ch.flags || []).map((f, fi) => `
+    <div class="flag-item">
+      <span class="flag-emoji">${f.type}</span>
+      <span class="flag-text">${escH(f.text)}</span>
+      <button class="flag-delete" onclick="deleteFlag(${id},${fi})">×</button>
+    </div>
+  `).join('');
+
+  detail.innerHTML = `
+    <div class="detail-header">
+      <button class="back-btn" onclick="goBack()">←</button>
+      <div>
+        <div class="detail-title">CHAPTER ${ch.num} — ${ch.title}</div>
+      </div>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+        <span style="font-size:12px; color:var(--muted); font-family:'Cinzel',serif; letter-spacing:.1em;">STATUS</span>
+        <select onchange="updateChapter(${id},'status',this.value)" style="background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:4px 8px; color:var(--text); font-family:'Crimson Pro',serif;">${statusOpts}</select>
+      </div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-main">
+
+        <div class="field-group">
+          <div class="field-label">CHAPTER TITLE
+            <input type="text" value="${escQ(ch.title||'')}" onchange="updateChapter(${id},'title',this.value)"
+              style="background:transparent;border:none;outline:none;color:var(--ember);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;text-align:right;width:auto;">
+          </div>
+          <div class="field-body">
+            <textarea placeholder="What happens in this chapter? Core story beats, purpose, emotional arc..." rows="3"
+              onchange="updateChapter(${id},'synopsis',this.value)">${ch.synopsis||''}</textarea>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">OPENING HOOK</div>
+          <div class="field-body">
+            <input type="text" placeholder="The first line or image that pulls the reader in..."
+              value="${escQ(ch.openingHook||'')}" onchange="updateChapter(${id},'openingHook',this.value)">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">CLIFFHANGER / CHAPTER ENDING</div>
+          <div class="field-body">
+            <input type="text" placeholder="What keeps the reader turning the page..."
+              value="${escQ(ch.cliffhanger||'')}" onchange="updateChapter(${id},'cliffhanger',this.value)">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">THEMES</div>
+          <div class="field-body">
+            <input type="text" placeholder="e.g. Cost of trust, sacrifice, identity..."
+              value="${escQ(ch.themes||'')}" onchange="updateChapter(${id},'themes',this.value)">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">COMMUNITY VOTE DIRECTION</div>
+          <div class="field-body">
+            <input type="text" placeholder="Winning vote direction from Phase 4 (paste here for reference)..."
+              value="${escQ(ch.plotDirection||'')}" onchange="updateChapter(${id},'plotDirection',this.value)">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">ACTS (5 PER CHAPTER)</div>
+          <div class="field-body" style="padding:12px;">
+            <div class="acts-grid">${actsHtml}</div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">NOTES</div>
+          <div class="field-body">
+            <textarea placeholder="Continuity flags, research notes, things to fix..." rows="3"
+              onchange="updateChapter(${id},'notes',this.value)">${ch.notes||''}</textarea>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sidebar">
+        <div class="sidebar-card">
+          <div class="sidebar-header">CHARACTERS IN CHAPTER</div>
+          <div class="sidebar-body">
+            <div class="char-list">${charCheckboxes}</div>
+          </div>
+        </div>
+
+        <div class="sidebar-card">
+          <div class="sidebar-header">FLAGS & CONTINUITY NOTES</div>
+          <div class="sidebar-body">
+            <div class="flags-list" id="flagsList-${id}">${flagsHtml}</div>
+            <div class="add-flag-row">
+              <input id="flagInput-${id}" placeholder="Add a flag..." onkeydown="if(event.key==='Enter')addFlag(${id})">
+              <button class="add-flag-btn" onclick="addFlag(${id})">+</button>
+            </div>
+            <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+              ${['🔮','🔗','⚠️','💡','🎭','🗡️'].map(e=>`<span style="cursor:pointer;font-size:18px;" onclick="setFlagType(${id},'${e}')">${e}</span>`).join('')}
+              <span id="selectedFlagType-${id}" style="font-size:12px;color:var(--muted);align-self:center;">🔮</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function goBack() {
+  currentChapterId = null;
+  document.getElementById('chapters-list-view').style.display = '';
+  document.getElementById('chapter-detail-view').style.display = 'none';
+  renderChapters();
+}
+
+function updateChapter(id, field, value) {
+  const ch = state.chapters.find(c => c.id === id);
+  if (ch) { ch[field] = value; save(); }
+}
+
+function updateAct(id, actIndex, field, value) {
+  const ch = state.chapters.find(c => c.id === id);
+  if (!ch) return;
+  if (!ch.acts) ch.acts = [{},{},{},{},{}];
+  while (ch.acts.length <= actIndex) ch.acts.push({});
+  ch.acts[actIndex][field] = value;
+  save();
+}
+
+function setActScore(id, actIndex, score) {
+  const ch = state.chapters.find(c => c.id === id);
+  if (!ch) return;
+  if (!ch.acts) ch.acts = [{},{},{},{},{}];
+  while (ch.acts.length <= actIndex) ch.acts.push({});
+  ch.acts[actIndex].score = score;
+  save();
+  openChapter(id); // re-render to update dots
+}
+
+function toggleCharacter(id, name) {
+  const ch = state.chapters.find(c => c.id === id);
+  if (!ch) return;
+  if (!ch.characters) ch.characters = [];
+  const idx = ch.characters.indexOf(name);
+  if (idx > -1) ch.characters.splice(idx, 1);
+  else ch.characters.push(name);
+  save();
+  openChapter(id);
+}
+
+let selectedFlagTypes = {};
+
+function setFlagType(id, emoji) {
+  selectedFlagTypes[id] = emoji;
+  const el = document.getElementById(`selectedFlagType-${id}`);
+  if (el) el.textContent = emoji;
+}
+
+function addFlag(id) {
+  const input = document.getElementById(`flagInput-${id}`);
+  if (!input || !input.value.trim()) return;
+  const ch = state.chapters.find(c => c.id === id);
+  if (!ch) return;
+  if (!ch.flags) ch.flags = [];
+  ch.flags.push({ type: selectedFlagTypes[id] || '🔮', text: input.value.trim() });
+  save();
+  input.value = '';
+  openChapter(id);
+}
+
+function deleteFlag(id, fi) {
+  const ch = state.chapters.find(c => c.id === id);
+  if (!ch || !ch.flags) return;
+  ch.flags.splice(fi, 1);
+  save();
+  openChapter(id);
+}
+
+function openAddChapterModal() {
+  const nextNum = (state.chapters.length > 0 ? Math.max(...state.chapters.map(c=>c.num)) + 1 : 1);
+  document.getElementById('newChapNum').value = nextNum;
+  document.getElementById('newChapTitle').value = '';
+  document.getElementById('addChapterModal').classList.add('open');
+  document.getElementById('newChapTitle').focus();
+}
+
+function confirmAddChapter() {
+  const num = parseInt(document.getElementById('newChapNum').value);
+  const title = document.getElementById('newChapTitle').value.trim();
+  if (!num || !title) return;
+  const id = Date.now();
+  state.chapters.push({
+    id, num, title, status: 'outline',
+    synopsis: '', themes: '', openingHook: '', cliffhanger: '',
+    plotDirection: '', notes: '', characters: [], flags: [], acts: [{},{},{},{},{}]
+  });
+  save();
+  closeModal('addChapterModal');
+  renderChapters();
+}
+
+// ── CHARACTERS ────────────────────────────────────────────────────────────────
+function renderCharacters() {
+  const grid = document.getElementById('charactersGrid');
+  const statusBadge = { active: '● Active', mia: '◌ MIA', book2: '◇ Book 2' };
+  const book1 = state.characters.filter(c => c.book === 1);
+  const book2 = state.characters.filter(c => c.book === 2);
+
+  function renderGroup(chars) {
+    return chars.map(c => `
+      <div class="char-card">
+        <div class="char-card-header" style="border-left:4px solid ${c.color};">
+          <div class="char-card-name" style="color:${c.color}">${c.name}</div>
+          <div class="char-card-role">${c.role}</div>
+          <div style="margin-left:auto;">
+            <span class="char-badge" style="border-color:${c.color};color:${c.color}">${statusBadge[c.status]||'◇ Unknown'}</span>
+          </div>
+        </div>
+        <div class="char-card-body">
+          <div>
+            <div class="char-field-label">Appearance</div>
+            <div class="char-field-val">${c.appearance}</div>
+          </div>
+          <div>
+            <div class="char-field-label">Personality</div>
+            <div class="char-field-val">${c.personality}</div>
+          </div>
+          <div>
+            <div class="char-field-label">Arc</div>
+            <div class="char-field-val">${c.arc}</div>
+          </div>
+          <div>
+            <div class="char-field-label">Voice</div>
+            <div class="char-field-val" style="font-style:italic;">${c.voice}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  grid.innerHTML = `
+    <div style="grid-column:1/-1;"><div class="section-title" style="margin-bottom:16px">Book 1 — Main Cast</div><div class="characters-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">${renderGroup(book1)}</div></div>
+    <div style="grid-column:1/-1;margin-top:24px"><div class="section-title" style="margin-bottom:16px">Book 2 — New Characters</div><div class="characters-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">${renderGroup(book2)}</div></div>
+  `;
+}
+
+// ── LORE ──────────────────────────────────────────────────────────────────────
+function renderLore() {
+  const categories = [...new Set(state.lore.map(l => l.category))];
+  const nav = document.getElementById('loreNav');
+  const icons = { Setting: '🌍', Lore: '📜', Rules: '⚖️', Locations: '🗺️' };
+
+  nav.innerHTML = categories.map(cat => `
+    <div class="lore-nav-item ${cat === currentLoreCategory ? 'active' : ''}" onclick="selectLoreCategory('${cat}')">
+      <span class="lore-nav-icon">${icons[cat]||'📌'}</span>
+      <span>${cat}</span>
+    </div>
+  `).join('') +
+  `<div class="lore-nav-item" onclick="addLoreCategory()" style="margin-top:8px;border-top:1px solid var(--border);padding-top:12px">
+    <span class="lore-nav-icon">+</span><span>Add Category</span>
+  </div>`;
+
+  renderLoreContent();
+}
+
+function selectLoreCategory(cat) {
+  currentLoreCategory = cat;
+  renderLore();
+}
+
+function renderLoreContent() {
+  const header = document.getElementById('loreContentHeader');
+  const body = document.getElementById('loreContentBody');
+  header.textContent = currentLoreCategory;
+
+  const entries = state.lore.filter(l => l.category === currentLoreCategory);
+  body.innerHTML = entries.map((e, i) => `
+    <div class="lore-entry">
+      <div class="lore-entry-key">${escH(e.key)}</div>
+      <textarea class="lore-entry-val" onchange="updateLore('${currentLoreCategory}',${i},this.value)">${escH(e.value)}</textarea>
+      <button onclick="deleteLore('${currentLoreCategory}',${i})" style="position:absolute;top:8px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;opacity:.4;transition:opacity.1s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.4">×</button>
+    </div>
+  `).join('') +
+  `<div style="display:flex;gap:8px;margin-top:12px">
+    <input id="newLoreKey" class="modal-input" placeholder="Key name..." style="flex:1;font-size:13px;padding:6px 10px">
+    <button class="btn btn-primary" onclick="addLoreEntry()">+ Add Entry</button>
+  </div>`;
+}
+
+function updateLore(cat, idx, value) {
+  const entries = state.lore.filter(l => l.category === cat);
+  if (entries[idx]) { entries[idx].value = value; save(); }
+}
+
+function deleteLore(cat, idx) {
+  const globalIdx = state.lore.findIndex((l,i) => {
+    const catEntries = state.lore.filter(x => x.category === cat);
+    return catEntries[idx] === l;
+  });
+  state.lore = state.lore.filter(l => !(l.category === cat && state.lore.filter(x=>x.category===cat).indexOf(l) === idx));
+  save();
+  renderLoreContent();
+}
+
+function addLoreEntry() {
+  const keyEl = document.getElementById('newLoreKey');
+  if (!keyEl || !keyEl.value.trim()) return;
+  state.lore.push({ category: currentLoreCategory, key: keyEl.value.trim(), value: '' });
+  save();
+  keyEl.value = '';
+  renderLoreContent();
+}
+
+function addLoreCategory() {
+  const name = prompt('Category name:');
+  if (!name?.trim()) return;
+  currentLoreCategory = name.trim();
+  state.lore.push({ category: name.trim(), key: 'New Entry', value: '' });
+  save();
+  renderLore();
+}
+
+// ── TIMELINE ──────────────────────────────────────────────────────────────────
+function renderTimeline() {
+  const container = document.getElementById('timelineContainer');
+  container.innerHTML = state.timeline.map((e, i) => `
+    <div class="timeline-entry">
+      <div class="timeline-dot"></div>
+      <div class="timeline-chapter">${escH(e.chapter)}</div>
+      <div class="timeline-event-title">${escH(e.title)}</div>
+      ${e.desc ? `<div class="timeline-event-desc">${escH(e.desc)}</div>` : ''}
+      <button onclick="deleteTimelineEvent(${i})"
+        style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--muted);cursor:pointer;opacity:.3;font-size:14px;transition:opacity.1s"
+        onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.3">×</button>
+    </div>
+  `).join('');
+}
+
+function addTimelineEvent() {
+  document.getElementById('newEventChapter').value = '';
+  document.getElementById('newEventTitle').value = '';
+  document.getElementById('newEventDesc').value = '';
+  document.getElementById('addTimelineModal').classList.add('open');
+  document.getElementById('newEventChapter').focus();
+}
+
+function confirmAddEvent() {
+  const chapter = document.getElementById('newEventChapter').value.trim();
+  const title = document.getElementById('newEventTitle').value.trim();
+  const desc = document.getElementById('newEventDesc').value.trim();
+  if (!chapter || !title) return;
+  state.timeline.push({ chapter, title, desc });
+  save();
+  closeModal('addTimelineModal');
+  renderTimeline();
+}
+
+function deleteTimelineEvent(i) {
+  state.timeline.splice(i, 1);
+  save();
+  renderTimeline();
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `vbook-planner-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        state = JSON.parse(ev.target.result);
+        save();
+        renderChapters();
+        alert('Imported successfully!');
+      } catch(err) { alert('Invalid JSON file'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function clearAll() {
+  if (!confirm('Reset all data to defaults? This cannot be undone.')) return;
+  localStorage.removeItem('vbook_planner');
+  load();
+  renderChapters();
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escQ(s) { return String(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+load();
+renderChapters();
+</script>
+</body>
+</html>
