@@ -1,73 +1,46 @@
-# VBook MovieMaker — Project Handoff Document
-*Last updated: March 1, 2026*
+# VBook MovieMaker — Session Handoff
+*Updated: March 1, 2026 — End of Session 2*
 
 ---
 
-## Project Overview
+## Quick Start (Any PC)
 
-**VBook** is an AI pipeline that takes the novel "The Concord of Nine" from written text through editorial review, scene illustration, narration, and ultimately a full animated movie. The pipeline is split between:
+```powershell
+# Pull latest code
+cd C:\Users\Client\Desktop\MovieMaker
+git pull origin feature/moviemaker-v2
+npm install
+npm run dev
+# → http://localhost:3001
 
-- **MovieMaker** — a Next.js editorial UI (localhost:3001) for reviewing and editing chapters
-- **Pipeline scripts** — Python scripts in `pipeline/` folder for image generation, Google Sheets population, etc.
-- **n8n workflows** — automation workflows for the full review-improve loop (Phase 3+)
-
----
-
-## Tech Stack
-
-| Layer | Tool |
-|---|---|
-| Editorial UI | Next.js 16 (app router, Tailwind, TypeScript) |
-| LLM for reviews | Gemini 2.5 Flash (via direct HTTP API) |
-| Image generation | fal.ai (flux/schnell model) |
-| Data storage | Google Sheets + local JSON files |
-| File storage | Google Drive + local `pipeline/data/` |
-| Workflow automation | n8n (on Railway) |
-| Version control | GitHub — branch: `feature/moviemaker-v2` |
-
----
-
-## Repository
-
-**GitHub:** `feature/moviemaker-v2` branch  
-**Local path:** `C:\Users\Client\Desktop\MovieMaker`  
-**Pipeline path:** `C:\Users\Client\Desktop\MovieMaker\pipeline`  
-**Python venv:** `C:\Users\Client\Desktop\vbook-pipeline\venv`
-
-To save work after each session:
+# Activate Python venv for pipeline scripts
+& "C:\Users\Client\Desktop\vbook-pipeline\venv\Scripts\Activate.ps1"
+cd pipeline
 ```
+
+**Save work after every session:**
+```powershell
 cd C:\Users\Client\Desktop\MovieMaker
 git add .
 git commit -m "session update"
 git push origin feature/moviemaker-v2
 ```
 
-To resume on another PC:
-```
-git pull origin feature/moviemaker-v2
-npm install
-npm run dev
-```
-
 ---
 
 ## Environment Variables
 
-**File:** `C:\Users\Client\Desktop\MovieMaker\.env.local`
-
+**`C:\Users\Client\Desktop\MovieMaker\.env.local`** (Next.js app)
 ```
-GEMINI_API_KEY=<your key from aistudio.google.com>
+GEMINI_API_KEY=<from aistudio.google.com>
 GEMINI_MODEL=gemini-2.5-flash
 CHAPTERS_FOLDER=C:\Users\Client\Desktop\book chapter updates\Book 1
 PIPELINE_FOLDER=C:\Users\Client\Desktop\MovieMaker\pipeline
-PYTHON_CMD=python
-PROFILES_FOLDER=C:\Users\Client\Desktop\MovieMaker\pipeline
 DECISIONS_FOLDER=C:\Users\Client\Desktop\MovieMaker\pipeline\review_decisions
 FAL_KEY=<your fal.ai key>
 ```
 
-**File:** `C:\Users\Client\Desktop\MovieMaker\pipeline\.env`
-
+**`C:\Users\Client\Desktop\MovieMaker\pipeline\.env`** (Python scripts)
 ```
 GEMINI_API_KEY=<same key>
 GEMINI_MODEL=gemini-2.5-flash
@@ -80,155 +53,144 @@ CLAUDE_MODEL=claude-sonnet-4-6
 
 ---
 
-## Book Structure
-
-**Book 1: "The Dragon's Last Breath" (Oath of Flame)**
-- 12 chapters + epilogue
-- 5 acts per chapter
-- ~58,000 words total
-- Chapter files: `C:\Users\Client\Desktop\book chapter updates\Book 1\`
-  - Ch1_revised.txt → Ch9_revised.txt
-  - Ch10.txt, Ch11.txt, Ch12.txt, Epilogue.txt
-
-**Main characters:** Caelin Thorne, Vex Sunshadow, Thornik Bramblebrew, Serana Valeblade, Durgan Nightcloak, Elowen Greenbloom (MIA Ch.7), Nyxara Veilthorn (joins Ch.8)
-
----
-
-## ✅ COMPLETED
-
-### MovieMaker UI (Next.js App)
-- **Home page** (`app/page.tsx`) — chapter list with scores, progress bar, word counts, Book 1 cover image
-- **Chapter page** (`app/chapter/[num]/page.tsx`) — 3-column split: act sidebar, chapter text reader, suggestions panel
-  - Act headings with collapse/expand toggle
-  - Larger serif text for comfortable reading
-  - Book cover thumbnail in header
-  - Live review log with SSE streaming
-- **Search page** (`app/search/page.tsx`) — full-text search across all chapters
-- **Characters page** (`app/characters/page.tsx`) — loads character profiles from pipeline folder
-- **Pipeline page** (`app/pipeline/page.tsx`) — script runner dashboard with live log output
-
-### API Routes
-- `app/api/chapters/route.ts` — lists all chapters with metadata
-- `app/api/chapters/[num]/route.ts` — individual chapter data, splits into acts
-- `app/api/chapters/review/route.ts` — Gemini editorial review with SSE streaming, saves to `review_decisions/ch{N}_decisions.json`
-- `app/api/chapters/apply/route.ts` — applies accepted suggestions, writes versioned file
-- `app/api/chapters/queue/route.ts` — run-all queue
-- `app/api/characters/route.ts` — serves character profiles
-- `app/api/search/route.ts` — full-text search
-- `app/api/pipeline/run/route.ts` — spawns Python pipeline scripts
-
-### Pipeline Scripts
-- `pipeline/book_image_pipeline.py` — complete image pipeline:
-  - `--step extract` — splits chapters into acts, extracts 2-4 scenes per act via Gemini
-  - `--step prompts` — generates fal.ai image prompts per scene
-  - `--step generate` — generates images via fal.ai, saves to `pipeline/data/images/`
-  - `--step status` — shows progress across all chapters
-- `pipeline/claude_client.py` — Gemini API wrapper using direct HTTP (no SDK, Python 3.14 compatible)
-- `pipeline/config.py` — environment variable loader
-- `pipeline/data/book1_scenes.json` — scene data store (8 scenes for Ch1 extracted)
-
-### n8n Workflows (in `pipeline/`)
-- `phase3-review-loop.json` — iterative review loop (score gate 9/10, max 5 retries/act, 3/chapter)
-- `phase4-voting.json` — chapter direction voting system
-- `phase5-scene-images.json` — scene image generation workflow
-- `phase6-video-assembly.json` — video assembly workflow
-
-### Other Deliverables
-- `pipeline/VBook_Story_Planner.html` — interactive story planning tool
-- `pipeline/VBook_Voting_Site.html` — reader voting site for plot directions
-- `pipeline/book_epub_export.py` — exports finished chapters to epub format
-- `pipeline/Concord_of_Nine_Series_Bible.docx` — full series bible document
-- `public/book1-cover.jpg` — Book 1 cover image (used in home + chapter pages)
-
-### Chapter Reviews Completed
-- **Chapter 1:** Score 7.5/10, 8 suggestions generated, saved to `review_decisions/ch1_decisions.json`
-
-### Image Pipeline Progress (Chapter 1)
-- ✅ 8 scenes extracted (across all acts)
-- ✅ 8 image prompts generated
-- ⏳ Image generation in progress (running `--step generate` when this doc was written)
-- Scenes: Thornwick's Ashy Silence, Softened Beam Awakened Power, Mira's Whispered Prophecy, Obsidian Crater Dying Dragon, The Last Guardian's Plea, Choice of Destiny, The Dragon's Mark, Ember's Inheritance
-
----
-
-## 🔲 STILL TO DO
-
-### Immediate Next Steps (this session)
-1. **Confirm Chapter 1 images generate successfully** — check `pipeline/data/images/chapter_01/`
-2. **Wire images into the chapter reading view** — show generated scene images inline within each act section in the chapter page
-
-### Image Display in Reader
-- Add an API endpoint that serves scene images for a given chapter/act
-- In `ActSection` component, fetch and display images between paragraphs or at the top of each act
-- Images stored at `pipeline/data/images/chapter_{N}/`
-- The `book1_scenes.json` has `local_path` field once generated — use this to map scene to act
-
-### Chapter Reviews Remaining
-- Run editorial review for Chapters 2–12
-- Consider running "Review All" queue to process all chapters overnight
-
-### Image Pipeline Remaining
-- Run extract → prompts → generate for Chapters 2–12
-- Each chapter: ~8–15 scenes, ~$0.01–0.05 per image on fal.ai
-
-### Apply Suggestions Feature
-- The "Apply Changes" modal exists in the UI but needs testing
-- Accepted suggestions should trigger a rewrite via Gemini and save a versioned file
-- `app/api/chapters/apply/route.ts` needs verification
-
-### Pipeline Dashboard
-- The Pipeline page exists but needs the image pipeline steps wired up as runnable scripts
-- Currently only shows Python scripts — add extract/prompts/generate as chapter-specific actions
-
-### Git & Deployment
-- Create `save.bat` in MovieMaker root for one-click commit+push
-- Merge `feature/moviemaker-v2` into main when stable
-- Consider Railway deployment for the Next.js app so it's accessible without running locally
-
-### Phase 5 (n8n) — Image Generation via n8n
-- `phase5-scene-images.json` workflow exists but Google Drive integration needs testing
-- Currently images save locally — need to verify Drive upload works when running via n8n
-
-### Phase 6 — Video Assembly
-- `phase6-video-assembly.json` workflow exists
-- Needs: ElevenLabs/OpenAI TTS for narration, FFmpeg for assembly
-- Not yet started — depends on Phase 5 being stable
-
-### Novel Reading Platform
-- Separate app at `C:\Users\Client\Desktop\Novel-reading`
-- Has cover images for Books 1–10
-- Needs to be connected to the generated content (chapters, images) from MovieMaker
-
----
-
 ## Key File Locations
 
 | What | Where |
 |---|---|
 | Next.js app | `C:\Users\Client\Desktop\MovieMaker` |
-| Chapter files | `C:\Users\Client\Desktop\book chapter updates\Book 1` |
-| Cover images | `C:\Users\Client\Desktop\Novel-reading\public\images\covers` |
-| Scene data JSON | `C:\Users\Client\Desktop\MovieMaker\pipeline\data\book1_scenes.json` |
-| Generated images | `C:\Users\Client\Desktop\MovieMaker\pipeline\data\images\` |
-| Review decisions | `C:\Users\Client\Desktop\MovieMaker\pipeline\review_decisions\` |
-| Character profiles | `C:\Users\Client\Desktop\MovieMaker\pipeline\*.txt` |
+| Chapter .txt files | `C:\Users\Client\Desktop\book chapter updates\Book 1` |
+| Book 1 cover | `C:\Users\Client\Desktop\MovieMaker\public\book1-cover.jpg` |
+| All cover images | `C:\Users\Client\Desktop\Novel-reading\public\images\covers\` |
+| Existing character images | `C:\Users\Client\Desktop\book notes\character images\` |
+| Scene data JSON | `pipeline\data\book1_scenes.json` |
+| Generated scene images | `pipeline\data\images\chapter_01\` |
+| Character reference images | `pipeline\data\character_refs\<name>\` |
+| Review decisions | `pipeline\review_decisions\ch1_decisions.json` |
+| Character profiles (.txt) | `pipeline\*.txt` |
 | Service account key | `C:\Users\Client\Desktop\MovieMaker\vbook-488806-eab9709315a1.json` |
 
 ---
 
-## Running the App
+## ✅ COMPLETED THIS SESSION
+
+### MovieMaker UI
+- **Home page** — Book 1 cover image displayed in header alongside title
+- **Chapter page** — Act sections now have large bold headings with collapse/expand toggle, larger serif reading text (Georgia, text-base, leading-8)
+- **Chapter page** — Small cover thumbnail in nav bar header
+- **Chapter 1 review** — Working via Gemini 2.5 Flash, scored 7.5/10, 8 suggestions saved to `review_decisions/ch1_decisions.json`
+
+### Image Pipeline (`pipeline/book_image_pipeline.py`)
+Complete rewrite with:
+- **Per-act extraction** — splits chapters into acts first, extracts 2-4 scenes per act (avoids JSON truncation)
+- **Location anchors** — `LOCATION_ANCHORS` dict ensures Thornwick, Ashford, The Crater etc. look consistent across all images
+- **Smart generation** — uses `fal-ai/consistent-character` for scenes with known characters (passes reference image), `flux/dev` for environment-only scenes
+- **Better model** — `flux/dev` with 28 steps instead of `flux/schnell` with 4 steps
+- **New `--step refs`** — generates character reference images before scene generation
+- Data saved to `pipeline/data/` (portable, committed to git)
+
+### Character Reference Generator (`pipeline/generate_character_refs.py`)
+- NEW script — generates 4 reference images per character using full profile details
+- Uses `flux/dev` with 30 steps for maximum quality
+- Full profile details from character sheets (age, build, clothing, distinctive marks, actor references)
+- 7 characters defined: Caelin, Vex, Thornik, Serana, Elowen, Durgan, Nyxara
+- Caelin updated after review: aged to late 20s with stubble, jacket description locked down precisely, hex-plate described as "dark window with fireflies inside"
+- `--overwrite` flag to regenerate specific characters
+- Images save to `pipeline/data/character_refs/<name>/`
+
+### Infrastructure Fixes
+- `claude_client.py` — rewritten to use direct HTTP (no google-genai SDK) — fixes Python 3.14 compatibility
+- Gemini model updated to `gemini-2.5-flash` throughout
+- Scene data path fixed to `pipeline/data/` (was pointing to old `vbook-pipeline/` folder)
+- Chapter 1: 8 scenes extracted, 8 prompts generated, images generating
+
+---
+
+## 🔲 TODO — NEXT SESSION
+
+### 1. Character References (START HERE)
+```powershell
+cd pipeline
+# Caelin was regenerated with better prompt — review the 4 new images
+# Then generate remaining characters:
+python generate_character_refs.py --character Vex
+python generate_character_refs.py --character Thornik
+python generate_character_refs.py --character Serana
+python generate_character_refs.py --character Elowen
+python generate_character_refs.py --character Durgan
+python generate_character_refs.py --character Nyxara
+```
+Compare against existing images in `C:\Users\Client\Desktop\book notes\character images\`  
+Use whichever is better per character — copy preferred image into `pipeline\data\character_refs\<name>\<name>_ref_01.png`
+
+### 2. Regenerate Chapter 1 Scene Images With References
+The 8 Chapter 1 scenes were generated with old schnell model and no references. Delete old images and regenerate:
+```powershell
+# Clear old local_path entries from scenes JSON first (or delete the image files)
+# Then regenerate — pipeline will now use consistent-character for character scenes
+python book_image_pipeline.py --step generate --chapter 1
+```
+
+### 3. Wire Images Into Chapter Reading View
+Scene images need to appear inline in the act sections of the chapter page.
+
+**How to do it:**
+- Add API endpoint `app/api/chapters/[num]/images/route.ts` that reads `book1_scenes.json` and returns scenes filtered by chapter + act number
+- In `ActSection` component in `app/chapter/[num]/page.tsx`, fetch images for that act and render them between paragraphs or at the top of the act
+- Image files are at `pipeline/data/images/chapter_01/` — Next.js needs to serve them, either via an API route that reads the file or by symlinking into `public/`
+
+### 4. Run Reviews for Chapters 2–12
+```powershell
+# In the UI: open each chapter and click Run Review
+# Or trigger via the Run All button on home page
+```
+
+### 5. Run Image Pipeline for Chapters 2–12
+```powershell
+python book_image_pipeline.py --step extract --book-folder "C:\Users\Client\Desktop\book chapter updates\Book 1" --chapter 2
+python book_image_pipeline.py --step prompts --chapter 2
+python book_image_pipeline.py --step generate --chapter 2
+# Repeat for chapters 3-12
+```
+
+### 6. Apply Suggestions Feature (Needs Testing)
+- Accept/reject buttons exist in the suggestions panel
+- `app/api/chapters/apply/route.ts` exists but hasn't been tested end-to-end
+- Should: take accepted suggestions, send to Gemini for surgical rewrite, save versioned file
+
+### 7. Pipeline Dashboard — Image Steps
+- Add extract/prompts/generate as runnable actions in the Pipeline page for each chapter
+- Currently only shows generic Python scripts
+
+### 8. Save.bat — One-Click Git Push
+Create `C:\Users\Client\Desktop\MovieMaker\save.bat`:
+```batch
+@echo off
+cd /d C:\Users\Client\Desktop\MovieMaker
+git add .
+git commit -m "session update %date% %time%"
+git push origin feature/moviemaker-v2
+echo Done.
+pause
+```
+
+### 9. Novel Reading Platform Integration
+- `C:\Users\Client\Desktop\Novel-reading` is a separate app with all book covers
+- Needs to pull in: chapter text, act images, review scores from MovieMaker pipeline
+- Not started — future phase
+
+---
+
+## Image Pipeline Commands Reference
 
 ```powershell
-# Activate venv (for pipeline scripts)
-& "C:\Users\Client\Desktop\vbook-pipeline\venv\Scripts\Activate.ps1"
+cd C:\Users\Client\Desktop\MovieMaker\pipeline
 
-# Start the UI
-cd C:\Users\Client\Desktop\MovieMaker
-npm run dev
-# → http://localhost:3001
+# Generate character reference images (run once per character)
+python generate_character_refs.py                        # all characters
+python generate_character_refs.py --character Caelin     # one character
+python generate_character_refs.py --character Caelin --overwrite  # regenerate
 
-# Run image pipeline for a chapter
-cd pipeline
+# Image pipeline (run in order for each chapter)
 python book_image_pipeline.py --step extract --book-folder "C:\Users\Client\Desktop\book chapter updates\Book 1" --chapter 1
 python book_image_pipeline.py --step prompts --chapter 1
 python book_image_pipeline.py --step generate --chapter 1
@@ -239,8 +201,27 @@ python book_image_pipeline.py --step status
 
 ## Known Issues / Gotchas
 
-- **Python 3.14 + google-genai SDK** — incompatible. `claude_client.py` uses direct HTTP instead. Do not reinstall the SDK.
-- **Gemini model name** — must be `gemini-2.5-flash` (not `gemini-2.0-flash` which is deprecated for new users)
-- **Port conflict** — if port 3000 is in use, Next.js moves to 3001. Kill PID with `taskkill /PID <n> /F` then `del .next\dev\lock`
-- **Scenes JSON path** — data lives in `pipeline/data/book1_scenes.json`. The old path `vbook-pipeline/book1_scenes.json` is outdated.
-- **Act detection** — chapters must have headers matching `^Act [IVX]+` for the pipeline to split correctly
+| Issue | Fix |
+|---|---|
+| Python 3.14 + google-genai SDK incompatible | `claude_client.py` uses direct HTTP — do NOT reinstall the SDK |
+| Gemini model name | Must be `gemini-2.5-flash` — `gemini-2.0-flash` is deprecated for new users |
+| Port conflict on startup | `taskkill /PID <n> /F` then `del .next\dev\lock` then `npm run dev` |
+| Scenes JSON not found | Data lives in `pipeline\data\book1_scenes.json` — old path `vbook-pipeline\` is outdated |
+| Act detection fails | Chapter .txt files must have headers matching `^Act [IVX]+` pattern |
+| Images too generic | Old images used flux/schnell — new pipeline uses flux/dev + consistent-character |
+
+---
+
+## GitHub
+
+**Branch:** `feature/moviemaker-v2`  
+**Files committed this session:**
+- `app/page.tsx` — cover image in header
+- `app/chapter/[num]/page.tsx` — act headings, collapse, larger text, cover thumbnail
+- `app/api/chapters/review/route.ts` — Gemini review endpoint
+- `pipeline/book_image_pipeline.py` — full rewrite with location anchors, consistent-character, flux/dev
+- `pipeline/claude_client.py` — direct HTTP, no SDK
+- `pipeline/generate_character_refs.py` — NEW character reference generator
+- `pipeline/data/book1_scenes.json` — Chapter 1 scenes + prompts
+- `public/book1-cover.jpg` — Book 1 cover
+- `HANDOFF.md` — previous handoff doc
