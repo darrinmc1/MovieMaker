@@ -8,6 +8,10 @@ USAGE:
   python book_image_pipeline.py --step prompts --chapter 1
   python book_image_pipeline.py --step generate --chapter 1 --act 1
   python book_image_pipeline.py --step status
+
+  # Run everything in one go:
+  python book_image_pipeline.py --all                    # all chapters, all acts
+  python book_image_pipeline.py --all --chapter 1        # one chapter, all acts
 """
 
 import argparse
@@ -39,25 +43,62 @@ BOOK_STYLE = (
 
 LOCATION_ANCHORS = {
     "thornwick": (
-        "ruined village of Thornwick: stone melted and re-solidified into smooth glossy curves, "
-        "wooden beams turned translucent, doorframes sagging into organic shapes, "
-        "cobblestones ridged like cooled lava, everything coated in thick pale ash"
+        "ruined village of Thornwick: stone buildings melted and re-solidified into smooth glossy curves, "
+        "wooden beams turned translucent amber, doorframes sagging into organic shapes, "
+        "cobblestones ridged like cooled lava flows, everything coated in thick pale ash, "
+        "eerie silence, smoke still rising from collapsed rooftops, orange dawn sky"
     ),
     "ashford": (
-        "large walled city of Ashford: broad cobblestone streets, sandstone buildings "
-        "with iron lanterns, busy market district, Accord banners hanging from walls"
+        "large walled city of Ashford: broad cobblestone streets slick with rain, sandstone buildings "
+        "with iron lanterns casting warm pools of light, busy market district, "
+        "Accord banners hanging from stone walls, crowded with merchants and travellers"
     ),
     "crater": (
-        "vast circular crater: obsidian glass floor fused from superheated sand, "
-        "ember-glow pulsing in deep cracks, smoking edges, unnaturally hot shimmering air"
+        "vast circular crater in barren volcanic highlands: obsidian glass floor fused from superheated sand, "
+        "deep cracks pulsing with ember-orange glow from below, thin smoke drifting upward, "
+        "unnaturally hot shimmering air distorting the horizon, "
+        "crater walls steep and blackened, oppressive red-orange sky overhead"
+    ),
+    "crater_dragon": (
+        "vast crater interior at dusk: obsidian-black floor split by molten fissures glowing orange-red, "
+        "massive ancient dragon collapsed at crater's centre surrounded by lava-light, "
+        "smoke and heat haze rising, crater walls looming dark overhead, "
+        "apocalyptic ember-red sky, dramatic silhouette lighting from below"
     ),
     "forest": (
-        "ancient forest road: massive moss-covered oaks arching overhead, "
-        "shafts of filtered green-gold light, dense undergrowth, roots crossing the dirt path"
+        "ancient forest road through towering oaks: massive moss-covered trunks arching overhead forming a dark canopy, "
+        "shafts of filtered green-gold light cutting through, dense undergrowth pressing close, "
+        "gnarled roots crossing the dirt path, mist hanging low between trees"
+    ),
+    "forest_corrupted": (
+        "dying corrupted forest: ancient oaks with bark turned black and split, "
+        "leaves withered to grey ash still on branches, dark veins of corruption spreading across ground, "
+        "sickly purple-black mist drifting between trunks, unnatural silence, no birdsong"
     ),
     "tavern": (
-        "low-ceilinged medieval tavern: heavy oak beams, roaring fireplace, "
-        "rough wooden tables, tallow candles, warm amber light, smoke-stained walls"
+        "low-ceilinged medieval tavern interior: heavy dark oak beams, roaring stone fireplace, "
+        "rough-hewn wooden tables and benches, tallow candles in iron holders, "
+        "warm amber light, smoke-stained plaster walls, smell of ale and wood smoke"
+    ),
+    "mountain": (
+        "high mountain pass in the Emberpeaks: jagged grey stone cliffs rising on both sides, "
+        "thin cold air, distant peaks shrouded in cloud, loose scree underfoot, "
+        "wind-blasted sparse vegetation, dramatic storm-grey sky"
+    ),
+    "sanctum": (
+        "ancient dragon sanctum carved into mountain rock: vast vaulted stone chambers, "
+        "walls etched with Draconic script glowing faint amber, "
+        "crystalline formations growing from floor and ceiling, "
+        "air thick with ancient heat, deep silence broken only by distant rumbling"
+    ),
+    "camp": (
+        "wilderness camp at night: small fire burning low, bedrolls spread on rocky ground, "
+        "pine trees pressing close in darkness, stars visible through canopy breaks, "
+        "cold clear mountain air, flickering shadows cast by firelight"
+    ),
+    "road": (
+        "open road through rolling countryside: dirt track cutting through sparse farmland, "
+        "distant treeline on horizon, overcast grey sky, wind bending long grass at roadside"
     ),
 }
 
@@ -108,9 +149,17 @@ def extract_scenes_for_act(chapter: int, act: int) -> list[dict]:
         "id (string like ch1_act1_s1), "
         "title (short 3-5 word title), "
         "characters_present (array of character first names only, e.g. ['Caelin','Vex']), "
-        "location_key (one word: thornwick / ashford / crater / forest / tavern / dungeon / road / camp / other), "
-        "visual_description (2-3 sentences describing what we SEE: setting, characters, action — no dialogue, no internal thoughts), "
-        "mood (one word: tense / dramatic / peaceful / mysterious / action / emotional / dark)"
+        "location_key (choose the best match: thornwick / ashford / crater / crater_dragon / forest / forest_corrupted / tavern / mountain / sanctum / camp / road / other), "
+        "visual_description (4-6 sentences describing what we SEE in rich detail: exact setting details, lighting, atmosphere, character positions, clothing, actions, foreground and background elements — no dialogue, no internal thoughts, be specific and vivid), "
+        "mood (one word: tense / dramatic / peaceful / mysterious / action / emotional / dark), "
+        "camera_angle (one of: behind — character seen from behind facing scene; "
+        "side — character in profile; "
+        "face — character face visible, dramatic portrait angle; "
+        "wide — no main character focus, establishing landscape shot). "
+        "Use 'behind' for dramatic moments where character faces something overwhelming (dragon, crater, army). "
+        "Use 'face' for emotional or conversational scenes. "
+        "Use 'wide' for pure location/atmosphere establishing shots. "
+        "Use 'side' for action or travel scenes."
     )
     user = f"Chapter {chapter}, Act {act}:\n\n{text[:4000]}"
 
@@ -128,52 +177,122 @@ def extract_scenes_for_act(chapter: int, act: int) -> list[dict]:
 
 # ── Prompt building ───────────────────────────────────────────────────────────
 
+CAMERA_ANGLE_PHRASES = {
+    "behind": "viewed from behind, character silhouetted against scene, back to camera, dramatic rear perspective",
+    "side":   "character in profile, side view, three-quarter angle, dynamic composition",
+    "face":   "character face visible, medium shot, emotional expression, cinematic portrait framing",
+    "wide":   "wide establishing shot, no foreground characters, full landscape panorama, epic scale",
+}
+
 def build_prompt(scene: dict) -> str:
     parts = []
+
+    # Location anchor
     anchor = get_location_anchor(scene)
     if anchor:
         parts.append(anchor)
+
+    # Visual description
     parts.append(scene.get("visual_description", ""))
 
+    # Camera angle
+    angle = scene.get("camera_angle", "behind")
+    angle_phrase = CAMERA_ANGLE_PHRASES.get(angle, CAMERA_ANGLE_PHRASES["behind"])
+    parts.append(angle_phrase)
+
+    # Character descriptions — only if face or side (behind/wide don't need face detail)
     char_names = scene.get("characters_present", [])
     known      = load_character_names()
-    for name in char_names:
-        match = next((k for k in known if k.lower() == name.lower()), None)
+    if angle in ("face", "side"):
+        for name in char_names:
+            match = next((k for k in known if k.lower() == name.lower()), None)
+            if match:
+                spec = importlib.util.spec_from_file_location(match, CHARS_DIR / f"{match}.py")
+                mod  = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                first_sentence = mod.BASE.split(".")[0] + "."
+                parts.append(f"{match}: {first_sentence}")
+    elif angle == "behind" and char_names:
+        # For behind shots just describe the outfit/silhouette, not the face
+        match = next((k for k in known if k.lower() == char_names[0].lower()), None)
         if match:
             spec = importlib.util.spec_from_file_location(match, CHARS_DIR / f"{match}.py")
             mod  = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(mod)
-            first_sentence = mod.BASE.split(".")[0] + "."
-            parts.append(f"{match}: {first_sentence}")
+            # Use just the clothing/silhouette part of BASE
+            base = getattr(mod, "BASE", "")
+            # Extract sentences mentioning clothing/coat/outfit
+            outfit_hints = [s.strip() for s in base.split(".") if any(w in s.lower() for w in ["coat", "duster", "cloak", "robe", "outfit", "clothing", "wear", "jacket"])]
+            if outfit_hints:
+                parts.append(f"{match} silhouette: {outfit_hints[0]}.")
 
     parts.append(BOOK_STYLE)
     return " ".join(parts)
 
 # ── Image generation ──────────────────────────────────────────────────────────
 
-def generate_image_fal(prompt: str, output_path: Path, characters: list[str]) -> bool:
+def generate_image_fal(prompt: str, output_path: Path, characters: list[str], base_image: Path | None = None) -> bool:
+    """
+    Generate a scene image.
+    - characters: used to find a character ref for instant-character (face scenes)
+    - base_image: first scene image from this act — used as style reference for consistency
+    """
     api_key = config.FAL_API_KEY
     if not api_key:
         print("    FAL_KEY not set")
         return False
 
-    ref_path = None
+    char_ref_path = None
     for name in characters:
         ref = get_character_default(name)
         if ref:
-            ref_path = ref
-            print(f"    Using ref: {ref.name}")
+            char_ref_path = ref
+            print(f"    Using char ref: {ref.name}")
             break
 
     try:
-        if ref_path:
-            ref_b64  = base64.b64encode(ref_path.read_bytes()).decode()
+        if char_ref_path:
+            # Face/side shot — use instant-character for face consistency
+            ref_b64  = base64.b64encode(char_ref_path.read_bytes()).decode()
             ref_uri  = f"data:image/png;base64,{ref_b64}"
-            payload  = {"prompt": prompt[:1500], "image_url": ref_uri, "image_size": "landscape_16_9", "num_images": 1}
+            payload  = {
+                "prompt":     prompt[:2500],
+                "image_url":  ref_uri,
+                "image_size": "landscape_16_9",
+                "num_images": 1,
+            }
             endpoint = "fal-ai/instant-character"
+            print(f"    Endpoint: instant-character (face ref)")
+
+        elif base_image and base_image.exists():
+            # No face ref needed — use base scene image for style/palette consistency
+            base_b64 = base64.b64encode(base_image.read_bytes()).decode()
+            base_uri = f"data:image/png;base64,{base_b64}"
+            payload  = {
+                "prompt":           prompt[:2500],
+                "image_url":        base_uri,
+                "image_size":       "landscape_16_9",
+                "strength":         0.75,   # how much to deviate from base (0=copy, 1=ignore)
+                "num_inference_steps": 30,
+                "guidance_scale":   4.0,
+                "num_images":       1,
+                "enable_safety_checker": True,
+            }
+            endpoint = "fal-ai/flux/dev/image-to-image"
+            print(f"    Endpoint: flux img2img (style from base: {base_image.name})")
+
         else:
-            payload  = {"prompt": prompt[:1500], "image_size": "landscape_16_9", "num_inference_steps": 28, "guidance_scale": 3.5, "num_images": 1, "enable_safety_checker": True}
+            # First scene in act — pure text-to-image, sets the style baseline
+            payload  = {
+                "prompt":              prompt[:2500],
+                "image_size":          "landscape_16_9",
+                "num_inference_steps": 30,
+                "guidance_scale":      4.0,
+                "num_images":          1,
+                "enable_safety_checker": True,
+            }
             endpoint = "fal-ai/flux/dev"
+            print(f"    Endpoint: flux txt2img (base scene)")
 
         resp = requests.post(
             f"https://fal.run/{endpoint}",
@@ -251,11 +370,15 @@ def step_generate(chapter: int, act: int | None):
         print("  No scenes found. Run --step extract first.")
         return
 
+    # Track the first successfully generated image per act to use as style base
+    act_base_images: dict[int, Path] = {}
+
     for s in targets:
         scene_id = s.get("id", "unknown")
         title    = s.get("title", "scene")
         act_num  = s.get("act", 1)
         prompt   = s.get("prompt", "")
+        angle    = s.get("camera_angle", "behind")
 
         if not prompt:
             print(f"  {scene_id}: no prompt — run --step prompts first")
@@ -268,13 +391,24 @@ def step_generate(chapter: int, act: int | None):
         if out_path.exists():
             print(f"  {scene_id}: already exists — skipping")
             s["image_path"] = str(out_path)
+            # Register as base if none yet for this act
+            if act_num not in act_base_images:
+                act_base_images[act_num] = out_path
             continue
 
-        print(f"  Generating: [{chapter}.{act_num}] {title}")
-        ok = generate_image_fal(prompt, out_path, s.get("characters_present", []))
+        # Decide whether to pass character ref (face/side) or base image (behind/wide)
+        char_ref_names = s.get("characters_present", []) if angle in ("face", "side") else []
+        base_img       = None if angle in ("face", "side") else act_base_images.get(act_num)
+
+        print(f"  Generating: [{chapter}.{act_num}] {title} ({angle})")
+        ok = generate_image_fal(prompt, out_path, char_ref_names, base_image=base_img)
         if ok:
             s["image_path"] = str(out_path)
             print(f"    Saved: {out_path.name}")
+            # First success in this act becomes the style base
+            if act_num not in act_base_images:
+                act_base_images[act_num] = out_path
+                print(f"    Set as style base for Act {act_num}")
         else:
             print(f"    Failed")
         save_scenes(scenes)
@@ -319,14 +453,125 @@ def step_status():
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def get_all_chapters() -> list[int]:
+    """Find all chapter numbers that have act files."""
+    chapters = set()
+    import re
+    for f in ACTS_DIR.glob("Ch*_Act*.txt"):
+        m = re.search(r"Ch(\d+)_Act", f.name)
+        if m:
+            chapters.add(int(m.group(1)))
+    return sorted(chapters)
+
+
+def run_all(chapter: int | None):
+    """Run extract → prompts → generate for all acts in one or all chapters."""
+    chapters = [chapter] if chapter else get_all_chapters()
+    if not chapters:
+        print("No act files found. Make sure pipeline/acts/ has Ch<N>_Act<N>.txt files.")
+        return
+
+    print(f"\n[ALL] Processing chapters: {chapters}")
+    for ch in chapters:
+        acts = get_all_acts_for_chapter(ch)
+        if not acts:
+            print(f"  Chapter {ch}: no act files found, skipping")
+            continue
+        print(f"\n{'='*50}")
+        print(f"  CHAPTER {ch} — {len(acts)} acts: {acts}")
+        print(f"{'='*50}")
+        for act in acts:
+            print(f"\n  --- Ch{ch} Act{act} ---")
+            step_extract(ch, act)
+            step_prompts(ch, act)
+            step_generate(ch, act)
+
+    print("\n[ALL] Done! Run --step status to see results.")
+
+
+def run_interactive():
+    """Interactive mode — process chapters one at a time with prompts between each."""
+    all_chapters = get_all_chapters()
+    if not all_chapters:
+        print("No act files found. Make sure pipeline/acts/ has Ch<N>_Act<N>.txt files.")
+        return
+
+    print(f"\n[INTERACTIVE MODE]")
+    print(f"Available chapters: {all_chapters}")
+    print(f"Commands: type a chapter number, 'all', 'next', 'status', or 'q' to quit\n")
+
+    last_chapter = None
+
+    while True:
+        try:
+            choice = input("Which chapter? > ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nExiting.")
+            break
+
+        if choice in ("q", "quit", "exit"):
+            print("Done!")
+            break
+
+        elif choice == "status":
+            step_status()
+
+        elif choice == "all":
+            run_all(None)
+
+        elif choice in ("next", "n", ""):
+            if last_chapter is None:
+                next_ch = all_chapters[0]
+            else:
+                idx = all_chapters.index(last_chapter) if last_chapter in all_chapters else -1
+                next_ch = all_chapters[idx + 1] if idx + 1 < len(all_chapters) else None
+            if next_ch is None:
+                print("All chapters done!")
+            else:
+                run_all(next_ch)
+                last_chapter = next_ch
+                remaining = [c for c in all_chapters if c > next_ch]
+                if remaining:
+                    print(f"\nRemaining chapters: {remaining}")
+                    print("Type a number, 'next', 'status', or 'q'")
+
+        elif choice.isdigit():
+            ch = int(choice)
+            if ch not in all_chapters:
+                print(f"Chapter {ch} not found. Available: {all_chapters}")
+            else:
+                run_all(ch)
+                last_chapter = ch
+                remaining = [c for c in all_chapters if c > ch]
+                if remaining:
+                    print(f"\nRemaining chapters: {remaining}")
+                    print("Type a number, 'next', 'status', or 'q'")
+
+        else:
+            print(f"  Unknown command '{choice}'. Type a chapter number, 'next', 'all', 'status', or 'q'")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Book image pipeline")
-    parser.add_argument("--step",    required=True, choices=["extract", "prompts", "generate", "status"])
+    parser.add_argument("--step",    choices=["extract", "prompts", "generate", "status"])
     parser.add_argument("--chapter", type=int, default=None)
     parser.add_argument("--act",     type=int, default=None)
+    parser.add_argument("--all",         action="store_true", help="Run extract+prompts+generate for all acts")
+    parser.add_argument("--interactive",  action="store_true", help="Interactive chapter-by-chapter mode")
     args = parser.parse_args()
 
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+
+    if args.interactive:
+        run_interactive()
+        return
+
+    if args.all:
+        run_all(args.chapter)
+        return
+
+    if not args.step:
+        parser.error("Either --step or --all is required")
 
     if args.step in ["extract", "prompts", "generate"] and not args.chapter:
         parser.error(f"--chapter required for {args.step} step")
