@@ -74,6 +74,10 @@ export default function Home() {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
             Search
           </button>
+          <button onClick={() => router.push('/reader/novel/vbook-book1')}
+            className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs rounded-lg transition-all">
+            📖 Reader
+          </button>
           <button onClick={() => router.push('/characters')}
             className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-500 hover:text-zinc-200 text-xs rounded-lg transition-all">
             👥 Characters
@@ -153,9 +157,9 @@ export default function Home() {
                 key={ch.chapterNum}
                 onMouseEnter={() => setHovered(ch.chapterNum)}
                 onMouseLeave={() => setHovered(null)}
-                onClick={() => ch.exists && router.push(`/chapter/${ch.chapterNum}`)}
+                onClick={() => ch.exists && router.push(`/reader/novel/vbook-book1/chapter/${ch.chapterNum}`)}
                 className={`group flex items-center gap-6 px-4 py-4 rounded-xl transition-all duration-150 cursor-pointer ${!ch.exists ? 'opacity-30 cursor-not-allowed' :
-                    isHovered ? 'bg-zinc-900' : ''
+                  isHovered ? 'bg-zinc-900' : ''
                   }`}
               >
                 {/* Number */}
